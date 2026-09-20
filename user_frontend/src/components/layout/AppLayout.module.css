@@ -1,0 +1,254 @@
+/* ── Shell ──────────────────────────────────────────────────── */
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-offwhite);
+}
+
+/* ── Sidebar (desktop) ──────────────────────────────────────── */
+.sidebar {
+  width: 256px;
+  min-height: 100vh;
+  background: var(--color-navy-900);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-6) 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+}
+
+.sidebarTop { display: flex; flex-direction: column; gap: var(--space-8); }
+.sidebarBottom { padding: 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* ── Logo ────────────────────────────────────────────────────── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-5);
+  text-decoration: none;
+}
+
+.logoMark {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-teal-500), var(--color-saffron-500));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.logoMark span {
+  font-size: var(--text-xl);
+  font-weight: var(--font-extrabold);
+  color: white;
+}
+
+.logoText { display: flex; flex-direction: column; }
+.logoTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--color-white);
+  line-height: 1.2;
+}
+.logoSub {
+  font-size: var(--text-xs);
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── Nav Items ───────────────────────────────────────────────── */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  color: rgba(255,255,255,0.65);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  transition: background var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+.navItem:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--color-white);
+  text-decoration: none;
+}
+.navItemActive {
+  background: rgba(255,255,255,0.15);
+  color: var(--color-white);
+  font-weight: var(--font-semibold);
+}
+.navItemActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 32px;
+  background: var(--color-teal-400);
+  border-radius: 0 4px 4px 0;
+}
+
+.navItem { position: relative; }
+
+/* ── User Card ───────────────────────────────────────────────── */
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.userCard:hover { background: rgba(255,255,255,0.08); text-decoration: none; }
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.userInfo { display: flex; flex-direction: column; }
+.userName { font-size: var(--text-sm); font-weight: var(--font-medium); color: white; }
+.userRole { font-size: var(--text-xs); color: rgba(255,255,255,0.5); }
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-lg);
+  color: rgba(255,255,255,0.5);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-family: var(--font-primary);
+  font-weight: var(--font-medium);
+  transition: background var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+  width: 100%;
+  text-align: left;
+}
+.logoutBtn:hover { background: rgba(239,68,68,0.15); color: #FCA5A5; }
+
+/* ── Main Content ─────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  margin-left: 256px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content {
+  flex: 1;
+  padding: var(--space-8);
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Top Bar (mobile) ─────────────────────────────────────────── */
+.topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  height: var(--nav-height);
+  background: var(--color-navy-900);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbarLogo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+}
+.logoMarkSm {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-teal-500), var(--color-saffron-500));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logoMarkSm span { font-size: var(--text-base); font-weight: var(--font-extrabold); color: white; }
+.topbarTitle { font-size: var(--text-lg); font-weight: var(--font-bold); color: white; }
+
+.bellBtn {
+  color: rgba(255,255,255,0.8);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  transition: background var(--duration-fast);
+}
+.bellBtn:hover { background: rgba(255,255,255,0.1); }
+
+/* ── Mobile Bottom Nav ─────────────────────────────────────────── */
+.bottomNav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--bottom-nav-height);
+  background: var(--color-navy-900);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  z-index: 100;
+}
+
+.bottomNavItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  transition: color var(--duration-fast) var(--ease-standard);
+  flex: 1;
+  padding: var(--space-1);
+}
+.bottomNavItem:hover { color: rgba(255,255,255,0.8); text-decoration: none; }
+.bottomNavItemActive { color: var(--color-teal-400); }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .topbar  { display: flex; }
+  .bottomNav { display: flex; }
+  .main { margin-left: 0; padding-bottom: var(--bottom-nav-height); }
+  .content {
+    padding: var(--space-4);
+    max-width: 100%;
+  }
+}

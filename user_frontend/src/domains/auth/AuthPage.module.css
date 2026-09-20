@@ -1,0 +1,89 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+  background: linear-gradient(160deg, var(--color-navy-900) 0%, var(--color-navy-700) 40%, var(--color-offwhite) 100%);
+}
+
+.logoArea {
+  margin-bottom: var(--space-8);
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.logoMark {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--color-teal-500), var(--color-saffron-400));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logoMark span { font-size: var(--text-xl); font-weight: var(--font-extrabold); color: white; }
+.logoName { font-size: var(--text-2xl); font-weight: var(--font-extrabold); color: white; }
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--color-white);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xl);
+  padding: var(--space-8);
+  animation: fadeIn var(--duration-slow) var(--ease-decelerate) both;
+}
+
+.cardHead { margin-bottom: var(--space-6); }
+.title    { font-size: var(--text-2xl); color: var(--color-navy-900); }
+.subtitle { color: var(--color-gray-500); margin-top: var(--space-1); font-size: var(--text-sm); }
+
+.errorBanner {
+  background: var(--color-error-50);
+  border: 1px solid var(--color-error-100);
+  border-left: 4px solid var(--color-error-700);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-error-700);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  margin-bottom: var(--space-4);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.passwordWrapper { position: relative; }
+.eyeBtn {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  background: none;
+  border: none;
+  color: var(--color-gray-400);
+  cursor: pointer;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast);
+  display: flex;
+  align-items: center;
+}
+.eyeBtn:hover { color: var(--color-gray-700); }
+
+.switchText {
+  text-align: center;
+  margin-top: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--color-gray-500);
+}
+.switchText a { color: var(--color-teal-600); font-weight: var(--font-semibold); }

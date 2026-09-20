@@ -1,0 +1,62 @@
+.page { display: flex; flex-direction: column; gap: var(--space-6); }
+.header h1 { font-size: var(--text-2xl); color: var(--color-navy-900); }
+.header p  { color: var(--color-gray-500); margin-top: var(--space-1); }
+
+.list { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.appLink { text-decoration: none; }
+.appCard { padding: var(--space-5) !important; }
+.appCardInner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+
+.appLeft { flex: 1; }
+
+.urgentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-saffron-100);
+  color: var(--color-saffron-600);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.schemeName {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-navy-900);
+  margin-bottom: var(--space-1);
+}
+.appId       { font-size: var(--text-xs); font-family: var(--font-mono); color: var(--color-gray-400); margin-bottom: 2px; }
+.submittedOn { font-size: var(--text-sm); color: var(--color-gray-500); }
+
+.appRight { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+.arrow    { color: var(--color-gray-400); }
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-16) var(--space-8);
+  gap: var(--space-3);
+}
+.emptyIcon   { color: var(--color-gray-300); }
+.emptyState h2 { color: var(--color-navy-900); }
+.emptyState p  { color: var(--color-gray-500); }
+.exploreLink { color: var(--color-teal-600); font-weight: var(--font-semibold); font-size: var(--text-base); }
+
+.skeletonRow {
+  background: var(--color-white);
+  border: var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}

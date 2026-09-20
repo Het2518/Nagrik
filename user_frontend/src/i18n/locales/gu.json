@@ -1,0 +1,83 @@
+{
+  "auth": {
+    "login": "પ્રવેશ કરો",
+    "register": "નોંધણી",
+    "logout": "બહાર નીકળો",
+    "mobile": "મોબાઇલ નંબર",
+    "password": "પાસવર્ડ",
+    "login_title": "આપનું સ્વાગત છે",
+    "login_subtitle": "આપની કલ્યાણ સેવાઓ ઍક્સેસ કરવા સાઇન ઇન કરો",
+    "register_title": "ખાતું બનાવો",
+    "register_subtitle": "આપના પરિવાર માટે સરકારી યોજનાઓ શોધવા નાગરિક સાથે જોડાઓ",
+    "no_account": "ખાતું નથી?",
+    "have_account": "પહેલેથી ખાતું છે?",
+    "mobile_placeholder": "10-અંકનો મોબાઇલ નંબર",
+    "password_placeholder": "ઓછામાં ઓછા 8 અક્ષરો",
+    "forgot_password": "પાસવર્ડ ભૂલ્યા?",
+    "change_password": "પાસવર્ડ બદલો"
+  },
+  "nav": {
+    "home": "હોમ",
+    "schemes": "યોજનાઓ",
+    "applications": "અરજીઓ",
+    "family": "પરિવાર",
+    "profile": "પ્રોફાઇલ"
+  },
+  "home": {
+    "greeting": "સ્વાગત",
+    "family_status_provisional": "પરિવારની નોંધણી સમીક્ષા હેઠળ",
+    "family_status_permanent": "ચકાસાયેલ પરિવાર",
+    "may_qualify": "આપ આ માટે પાત્ર હોઈ શકો",
+    "your_applications": "આપની અરજીઓ",
+    "find_schemes": "મારા પરિવાર માટે યોજનાઓ શોધો"
+  },
+  "schemes": {
+    "title": "સરકારી યોજનાઓ",
+    "subtitle": "આપ પાત્ર હોઈ શકો તેવી કલ્યાણ યોજનાઓ શોધો",
+    "eligible": "✓ પાત્ર",
+    "ineligible": "✗ અપાત્ર",
+    "not_checked": "○ પાત્રતા તપાસો",
+    "benefit": "લાભ",
+    "view_details": "વિગત જુઓ",
+    "apply": "અરજી કરો"
+  },
+  "common": {
+    "loading": "લોડ થઈ રહ્યું છે...",
+    "error": "કંઈક ખોટું થઈ ગયું",
+    "save": "સાચવો",
+    "cancel": "રદ કરો",
+    "next": "આગળ",
+    "back": "પાછળ",
+    "submit": "સબમિટ કરો",
+    "rupees": "₹"
+  },
+  "v2": {
+    "analyze_btn": "મારા પરિવારનું વિશ્લેષણ કરો",
+    "analyzing": "કલ્યાણ તકોનું વિશ્લેષણ થઈ રહ્યું છે...",
+    "welfare_coverage": "પરિવાર કલ્યાણ કવરેજ",
+    "current_benefits": "હાલ મળતા સરકારી લાભો",
+    "potential_benefits": "આપ પાત્ર હોઈ શકો તેવી સંભવિત યોજનાઓ",
+    "missing_evidence": "ખૂટતા દસ્તાવેજો અને જરૂરી પગલાં",
+    "reusable_evidence": "એક પુરાવો → અનેક યોજનાઓ",
+    "reusable_evidence_desc": "પ્રમાણિત દસ્તાવેજો જે અનેક યોજનાઓમાં માન્ય છે",
+    "recent_life_events": "તાજેતરના જીવન પ્રસંગો અને ફેરફારો",
+    "simulate_event": "⚡ જીવન પ્રસંગ સિમ્યુલેશન",
+    "upcoming_renewals": "આગામી નવીકરણ અને સમાપ્તિ તારીખ",
+    "why_qualify": "તમે શા માટે પાત્ર છો",
+    "why_explanation": "તમારા પરિવારની માહિતીના આધારે આ યોજના માટે તમે સંભવિત રીતે પાત્ર હોઈ શકો છો.",
+    "missing_evidence": "ખૂટતા દસ્તાવેજો અને જરૂરી પગલાં",
+    "missing_evidence_explanation": "આ અરજી આગળ વધારવા માટે માન્ય પ્રમાણપત્ર જરૂરી છે.",
+    "next_action": "આગળનું ભલામણ કરેલ પગલું",
+    "next_action_explanation": "કૃપા કરીને જરૂરી દસ્તાવેજ અપલોડ કરો અને તલાટીની ચકાસણી મેળવો.",
+    "resubmission_title": "દસ્તાવેજ સુધારણા જરૂરી છે",
+    "resubmission_desc": "અધિકારીએ ચોક્કસ દસ્તાવેજ સુધારવા જણાવ્યું છે. નવી અરજી કરવાની જરૂર નથી, હાલની અરજી આગળ વધશે.",
+    "unclaimed_value": "અંદાજિત ન મેળવેલ વાર્ષિક રકમ",
+    "simulation_disclaimer": "સિમ્યુલેશન સત્તાવાર સરકારી રેકોર્ડ બદલ્યા વિના વાસ્તવિક સમયમાં પ્રભાવ તપાસે છે.",
+    "simulate_title": "પરિસ્થિતિ પરિવર્તન સિમ્યુલેશન",
+    "simulate_age": "બાળક 18 વર્ષનું થાય ત્યારે",
+    "simulate_income": "કૌટુંબિક આવકમાં ફેરફાર",
+    "simulated_results": "સિમ્યુલેશન પ્રભાવ પરિણામ",
+    "newly_unlocked": "નવી ઉપલબ્ધ યોજનાઓ",
+    "requires_review": "સમીક્ષા જરૂરી લાભો"
+  }
+}

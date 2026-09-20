@@ -1,0 +1,104 @@
+.page { display: flex; flex-direction: column; gap: var(--space-5); max-width: 640px; }
+.pageTitle { font-size: var(--text-2xl); color: var(--color-navy-900); }
+
+/* ── Account Card ────────────────────────────────────────────── */
+.accountCard {
+  background: linear-gradient(135deg, var(--color-navy-900), var(--color-navy-700)) !important;
+  border-color: transparent !important;
+}
+
+.avatarSection {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.bigAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mobileNum  { font-size: var(--text-xl); font-weight: var(--font-bold); color: white; }
+.roleLabel  { font-size: var(--text-sm); color: rgba(255,255,255,0.6); margin-top: 4px; }
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+.infoGrid div { display: flex; flex-direction: column; gap: 2px; }
+.infoGrid span { font-size: var(--text-xs); color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
+.infoGrid strong { font-size: var(--text-sm); color: white; font-weight: var(--font-semibold); }
+
+/* ── Section Header ──────────────────────────────────────────── */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  color: var(--color-navy-900);
+}
+.sectionHeader h2 { font-size: var(--text-base); font-weight: var(--font-semibold); }
+
+/* ── Language ────────────────────────────────────────────────── */
+.langButtons { display: flex; gap: var(--space-3); }
+.langBtn {
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-lg);
+  border: var(--border-strong);
+  background: var(--color-white);
+  color: var(--color-gray-700);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  font-family: var(--font-primary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.langBtn:hover { border-color: var(--color-teal-500); color: var(--color-teal-600); }
+.langBtnActive { background: var(--color-navy-900); color: white; border-color: var(--color-navy-900); }
+
+/* ── Password Form ───────────────────────────────────────────── */
+.successMsg {
+  background: var(--color-success-50);
+  border: 1px solid var(--color-success-100);
+  border-left: 4px solid var(--color-success-700);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-success-700);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--space-4);
+}
+
+.form { display: flex; flex-direction: column; gap: var(--space-4); }
+.passWrapper { position: relative; }
+.eyeBtn {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  background: none;
+  border: none;
+  color: var(--color-gray-400);
+  cursor: pointer;
+  display: flex;
+  padding: var(--space-1);
+}
+.eyeBtn:hover { color: var(--color-gray-700); }
+.formAction { display: flex; justify-content: flex-end; }
+
+/* ── Danger Zone ─────────────────────────────────────────────── */
+.dangerCard { border-color: var(--color-error-100) !important; }
+.dangerTitle { font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-error-700); margin-bottom: var(--space-2); }
+.dangerText  { font-size: var(--text-sm); color: var(--color-gray-600); margin-bottom: var(--space-4); }
+
+@media (max-width: 640px) {
+  .infoGrid { grid-template-columns: 1fr 1fr; }
+}

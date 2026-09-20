@@ -1,0 +1,20 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-full);
+  font-weight: var(--font-semibold);
+  white-space: nowrap;
+}
+
+.sm  { padding: 2px var(--space-2); font-size: var(--text-xs); }
+.md  { padding: 3px var(--space-3); font-size: var(--text-sm); }
+.lg  { padding: var(--space-1) var(--space-4); font-size: var(--text-base); }
+
+.pending      { background: var(--color-warning-100); color: var(--color-warning-700); }
+.review       { background: var(--color-info-100);    color: var(--color-info-700); }
+.approved     { background: var(--color-navy-100);    color: var(--color-navy-800); }
+.final        { background: var(--color-success-100); color: var(--color-success-700); }
+.rejected     { background: var(--color-error-100);   color: var(--color-error-700); }
+.resubmission { background: var(--color-saffron-100); color: var(--color-saffron-600); }
+.neutral      { background: var(--color-gray-100);    color: var(--color-gray-700); }
