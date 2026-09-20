@@ -20,9 +20,19 @@ import {
   Clock,
   AlertTriangle,
   FileCheck2,
+  Trash2,
+  Edit3,
+  Activity,
+  Baby,
+  Heart,
+  GraduationCap,
+  Accessibility,
+  ArrowRight,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { familyService } from '../../services/familyService';
+import { v2WelfareService } from '../../services/v2WelfareService';
 import StatusChip from '../../components/ui/StatusChip';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -116,8 +126,12 @@ export default function FamilyPage({ openAddModal = false }) {
 
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(openAddModal);
   const [isAddDocOpen, setIsAddDocOpen] = useState(false);
+  const [isLifeEventOpen, setIsLifeEventOpen] = useState(false);
+  const [isEditingDoc, setIsEditingDoc] = useState(false);
+
   const [formError, setFormError] = useState('');
   const [docFormError, setDocFormError] = useState('');
+  const [eventFormError, setEventFormError] = useState('');
   const [successToast, setSuccessToast] = useState('');
 
   // Auto-open modal if requested via prop or route
@@ -147,6 +161,15 @@ export default function FamilyPage({ openAddModal = false }) {
 
   const evidenceList = docRegistry?.evidenceList || [];
 
+  // Query: Family Life Events History
+  const { data: lifeEventsData } = useQuery({
+    queryKey: ['familyLifeEvents', activeFamilyId],
+    queryFn: () => v2WelfareService.getLifeEvents(activeFamilyId).catch(() => ({ lifeEvents: [] })),
+    enabled: !!activeFamilyId,
+  });
+
+  const recordedLifeEvents = lifeEventsData?.lifeEvents || [];
+
   // Member Form State
   const [memberForm, setMemberForm] = useState({
     name: '',
@@ -169,6 +192,61 @@ export default function FamilyPage({ openAddModal = false }) {
     issuingAuthority: 'Mamlatdar Office, Gandhinagar',
     issueDate: new Date().toISOString().split('T')[0],
     expiryDate: '',
+    proofFileName: '',
+  });
+
+  // Life Event Form State
+  const [eventForm, setEventForm] = useState({
+    eventType: 'Birth',
+    memberId: '',
+    eventDate: new Date().toISOString().split('T')[0],
+    registrationNumber: '',
+    notes: '',
+  });
+
+  // Mutation: Add or Update Document
+  const addDocMutation = useMutation({
+    mutationFn: (payload) => familyService.addDocument(activeFamilyId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyDocuments', activeFamilyId] });
+      qc.invalidateQueries({ queryKey: ['family', familyId] });
+      qc.invalidateQueries({ queryKey: ['eligibility'] });
+      setIsAddDocOpen(false);
+      setIsEditingDoc(false);
+      setDocFormError('');
+      setDocForm({
+        certificateType: 'Income',
+        certificateNumber: '',
+        issuingAuthority: 'Mamlatdar Office, Gandhinagar',
+        issueDate: new Date().toISOString().split('T')[0],
+        expiryDate: '',
+        proofFileName: '',
+      });
+      setSuccessToast(
+        isEditingDoc
+          ? 'Certificate updated successfully! Scheme eligibility has been re-evaluated.'
+          : 'Document registered into Evidence Locker! Unlocked schemes have been updated.'
+      );
+      setTimeout(() => setSuccessToast(''), 6000);
+    },
+    onError: (err) => {
+      setDocFormError(err?.response?.data?.message || err?.message || 'Failed to save document');
+    },
+  });
+
+  // Mutation: Delete/Unlink Document
+  const deleteDocMutation = useMutation({
+    mutationFn: (certNumber) => familyService.deleteDocument(activeFamilyId, certNumber),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyDocuments', activeFamilyId] });
+      qc.invalidateQueries({ queryKey: ['family', familyId] });
+      qc.invalidateQueries({ queryKey: ['eligibility'] });
+      setSuccessToast('Certificate removed from Evidence Locker. Eligibility re-calculated.');
+      setTimeout(() => setSuccessToast(''), 6000);
+    },
+    onError: (err) => {
+      setDocFormError(err?.response?.data?.message || err?.message || 'Failed to remove document');
+    },
   });
 
   // Mutation: Add Member
@@ -203,29 +281,55 @@ export default function FamilyPage({ openAddModal = false }) {
     },
   });
 
-  // Mutation: Add Document
-  const addDocMutation = useMutation({
-    mutationFn: (payload) => familyService.addDocument(activeFamilyId, payload),
+  // Mutation: Record Life Event (Citizen Governance Trigger)
+  const recordEventMutation = useMutation({
+    mutationFn: (payload) => v2WelfareService.recordLifeEvent(payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['familyDocuments', activeFamilyId] });
+      qc.invalidateQueries({ queryKey: ['familyLifeEvents', activeFamilyId] });
       qc.invalidateQueries({ queryKey: ['family', familyId] });
       qc.invalidateQueries({ queryKey: ['eligibility'] });
-      setIsAddDocOpen(false);
-      setDocFormError('');
-      setDocForm({
-        certificateType: 'Income',
-        certificateNumber: '',
-        issuingAuthority: 'Mamlatdar Office, Gandhinagar',
-        issueDate: new Date().toISOString().split('T')[0],
-        expiryDate: '',
+      setIsLifeEventOpen(false);
+      setEventFormError('');
+      setEventForm({
+        eventType: 'Birth',
+        memberId: '',
+        eventDate: new Date().toISOString().split('T')[0],
+        registrationNumber: '',
+        notes: '',
       });
-      setSuccessToast('Document registered into Evidence Locker! Unlocked schemes have been updated.');
-      setTimeout(() => setSuccessToast(''), 6000);
+      setSuccessToast(
+        'Life event reported! The Nagrik Governance Engine has scheduled automated welfare transitions and queued the case for Talati verification.'
+      );
+      setTimeout(() => setSuccessToast(''), 7000);
     },
     onError: (err) => {
-      setDocFormError(err?.response?.data?.message || err?.message || 'Failed to register document');
+      setEventFormError(err?.response?.data?.message || err?.message || 'Failed to report life event');
     },
   });
+
+  const handleEditDoc = (doc) => {
+    setIsEditingDoc(true);
+    setDocForm({
+      certificateType: doc.certificateType || 'Income',
+      certificateNumber: doc.certificateNumber || '',
+      issuingAuthority: doc.issuingAuthority || 'Mamlatdar Office, Gandhinagar',
+      issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '',
+      expiryDate: doc.expiryDate ? new Date(doc.expiryDate).toISOString().split('T')[0] : '',
+      proofFileName: doc.docUrl || '',
+    });
+    setIsAddDocOpen(true);
+  };
+
+  const handleDeleteDoc = (certNum) => {
+    if (window.confirm(`Are you sure you want to remove certificate ${certNum}?`)) {
+      deleteDocMutation.mutate(certNum);
+    }
+  };
+
+  const handleOpenPresetEvent = (type) => {
+    setEventForm((prev) => ({ ...prev, eventType: type }));
+    setIsLifeEventOpen(true);
+  };
 
   const handleAddMemberSubmit = (e) => {
     e.preventDefault();
@@ -284,6 +388,24 @@ export default function FamilyPage({ openAddModal = false }) {
     };
 
     addDocMutation.mutate(payload);
+  };
+
+  const handleLifeEventSubmit = (e) => {
+    e.preventDefault();
+    setEventFormError('');
+
+    const payload = {
+      familyId: activeFamilyId,
+      memberId: eventForm.memberId || undefined,
+      eventType: eventForm.eventType,
+      eventDate: eventForm.eventDate || new Date().toISOString(),
+      details: {
+        registrationNumber: eventForm.registrationNumber.trim() || undefined,
+        notes: eventForm.notes.trim() || undefined,
+      },
+    };
+
+    recordEventMutation.mutate(payload);
   };
 
   if (!familyId) {
@@ -350,19 +472,63 @@ export default function FamilyPage({ openAddModal = false }) {
         </div>
       )}
 
-      {/* ── Eligibility Banner Card ─────────────────────── */}
-      <div className={styles.eligibilityBanner}>
-        <div className={styles.eligibilityContent}>
-          <h3>Automated Scheme Re-evaluation Active</h3>
-          <p>
-            Any update to your household members or registered certificates automatically checks your eligibility across all 50+ Gujarat welfare schemes.
-          </p>
+      {/* ── Governance & Lifecycle Mutation Trigger ──────── */}
+      <section className={styles.governanceSection}>
+        <div className={styles.governanceTop}>
+          <div>
+            <div className={styles.governanceTitle}>
+              <Activity size={22} color="#38BDF8" />
+              Nagrik Governance Engine: Report Life Events
+            </div>
+            <p className={styles.governanceSubtitle}>
+              When milestones occur (birth, marriage, graduation, bereavement), reporting here automatically adjusts your household benefits without visiting government offices.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className={styles.reportEventBtn}
+            onClick={() => setIsLifeEventOpen(true)}
+          >
+            <Plus size={16} />
+            Report Life Event
+          </button>
         </div>
-        <Link to="/schemes" className={styles.eligibilityBtn}>
-          View Available Schemes
-          <ExternalLink size={14} />
-        </Link>
-      </div>
+
+        <div className={styles.eventPresetsGrid}>
+          <div className={styles.presetCard} onClick={() => handleOpenPresetEvent('Birth')}>
+            <div className={styles.presetTitle}>
+              <Baby size={16} color="#38BDF8" />
+              Birth of Child
+            </div>
+            <p className={styles.presetDesc}>Unlocks child nutrition, Sukanya Samriddhi & NFSA unit</p>
+          </div>
+
+          <div className={styles.presetCard} onClick={() => handleOpenPresetEvent('Marriage')}>
+            <div className={styles.presetTitle}>
+              <Heart size={16} color="#F472B6" />
+              Marriage Event
+            </div>
+            <p className={styles.presetDesc}>Unlocks Kunwarbai nu Mameru & updates household card</p>
+          </div>
+
+          <div className={styles.presetCard} onClick={() => handleOpenPresetEvent('HigherEducation')}>
+            <div className={styles.presetTitle}>
+              <GraduationCap size={16} color="#FBBF24" />
+              Higher Education
+            </div>
+            <p className={styles.presetDesc}>Unlocks MYSY scholarships & laptop assistance</p>
+          </div>
+
+          <div className={styles.presetCard} onClick={() => handleOpenPresetEvent('Disability')}>
+            <div className={styles.presetTitle}>
+              <Accessibility size={16} color="#A78BFA" />
+              Disability (PwD)
+            </div>
+            <p className={styles.presetDesc}>Unlocks Sant Surdas pension & assistive aids</p>
+          </div>
+        </div>
+      </section>
 
       {/* ── Family Summary KPI Grid ─────────────────────── */}
       <div className={styles.summaryGrid}>
@@ -477,7 +643,18 @@ export default function FamilyPage({ openAddModal = false }) {
             variant="secondary"
             size="sm"
             icon={<Plus size={16} />}
-            onClick={() => setIsAddDocOpen(true)}
+            onClick={() => {
+              setIsEditingDoc(false);
+              setDocForm({
+                certificateType: 'Income',
+                certificateNumber: '',
+                issuingAuthority: 'Mamlatdar Office, Gandhinagar',
+                issueDate: new Date().toISOString().split('T')[0],
+                expiryDate: '',
+                proofFileName: '',
+              });
+              setIsAddDocOpen(true);
+            }}
           >
             Add Document / Certificate
           </Button>
@@ -495,7 +672,10 @@ export default function FamilyPage({ openAddModal = false }) {
               variant="outline"
               size="sm"
               icon={<Plus size={14} />}
-              onClick={() => setIsAddDocOpen(true)}
+              onClick={() => {
+                setIsEditingDoc(false);
+                setIsAddDocOpen(true);
+              }}
             >
               Add First Certificate
             </Button>
@@ -510,7 +690,7 @@ export default function FamilyPage({ openAddModal = false }) {
                     <span className={styles.docTypeName}>{doc.certificateType} Certificate</span>
                   </div>
                   <span className={`badge ${doc.isVerified ? 'badge-success' : 'badge-warning'}`}>
-                    {doc.isVerified ? 'Verified' : 'Pending Review'}
+                    {doc.isVerified ? 'Verified by Officer' : 'Under Officer Review'}
                   </span>
                 </div>
 
@@ -545,6 +725,28 @@ export default function FamilyPage({ openAddModal = false }) {
                     </div>
                   </div>
                 )}
+
+                {/* ── Document Actions: Edit/Renew & Delete ── */}
+                <div className={styles.docActions}>
+                  <button
+                    type="button"
+                    className={styles.docActionBtn}
+                    onClick={() => handleEditDoc(doc)}
+                  >
+                    <Edit3 size={13} />
+                    Edit / Renew
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.deleteDocBtn}
+                    onClick={() => handleDeleteDoc(doc.certificateNumber)}
+                    title="Remove document from Evidence Locker"
+                  >
+                    <Trash2 size={13} />
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -577,7 +779,7 @@ export default function FamilyPage({ openAddModal = false }) {
             <form onSubmit={handleAddMemberSubmit}>
               <div className={styles.modalBody}>
                 <p className={styles.modalDescription}>
-                  Enter the personal and socio-economic details of the household member. Scheme eligibility will automatically re-evaluate upon submission.
+                  Enter personal and socio-economic details. Scheme eligibility will automatically re-evaluate upon submission.
                 </p>
 
                 {formError && (
@@ -768,20 +970,21 @@ export default function FamilyPage({ openAddModal = false }) {
         </div>
       )}
 
-      {/* ── MODAL: Add Document / Evidence ────────────────── */}
+      {/* ── MODAL: Add / Edit Document / Evidence ──────────── */}
       {isAddDocOpen && (
         <div className={styles.modalOverlay} role="dialog" aria-modal="true">
           <div className={styles.modalDialog}>
             <div className={styles.modalHeader}>
               <h2>
                 <ShieldCheck size={20} color="var(--color-teal-600)" />
-                Register Document into Evidence Locker
+                {isEditingDoc ? 'Update / Renew Certificate' : 'Register Document into Evidence Locker'}
               </h2>
               <button
                 type="button"
                 className={styles.modalCloseBtn}
                 onClick={() => {
                   setIsAddDocOpen(false);
+                  setIsEditingDoc(false);
                   setDocFormError('');
                 }}
                 aria-label="Close"
@@ -793,7 +996,9 @@ export default function FamilyPage({ openAddModal = false }) {
             <form onSubmit={handleAddDocSubmit}>
               <div className={styles.modalBody}>
                 <p className={styles.modalDescription}>
-                  Registered certificates automatically satisfy application prerequisites across multiple schemes.
+                  {isEditingDoc
+                    ? 'Update the certificate details or upload a renewal proof. Updates are automatically re-evaluated by the governance engine.'
+                    : 'Registered certificates automatically satisfy application prerequisites across multiple schemes without redundant uploads.'}
                 </p>
 
                 {docFormError && (
@@ -809,6 +1014,7 @@ export default function FamilyPage({ openAddModal = false }) {
                     <select
                       className={styles.formSelect}
                       value={docForm.certificateType}
+                      disabled={isEditingDoc}
                       onChange={(e) => setDocForm({ ...docForm, certificateType: e.target.value })}
                     >
                       <option value="Income">Income Certificate</option>
@@ -878,6 +1084,7 @@ export default function FamilyPage({ openAddModal = false }) {
                   size="md"
                   onClick={() => {
                     setIsAddDocOpen(false);
+                    setIsEditingDoc(false);
                     setDocFormError('');
                   }}
                 >
@@ -889,7 +1096,140 @@ export default function FamilyPage({ openAddModal = false }) {
                   size="md"
                   disabled={addDocMutation.isPending}
                 >
-                  {addDocMutation.isPending ? 'Registering...' : 'Register Document'}
+                  {addDocMutation.isPending
+                    ? 'Saving...'
+                    : isEditingDoc
+                    ? 'Update Certificate'
+                    : 'Register Document'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Report Life Event (Governance Mutation) ── */}
+      {isLifeEventOpen && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modalDialog}>
+            <div className={styles.modalHeader}>
+              <h2>
+                <Activity size={20} color="#38BDF8" />
+                Report Life Event to Governance Engine
+              </h2>
+              <button
+                type="button"
+                className={styles.modalCloseBtn}
+                onClick={() => {
+                  setIsLifeEventOpen(false);
+                  setEventFormError('');
+                }}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleLifeEventSubmit}>
+              <div className={styles.modalBody}>
+                <p className={styles.modalDescription}>
+                  Reporting official lifecycle events automatically triggers welfare rule evaluations, creates officer verification tasks, and transitions benefits dynamically.
+                </p>
+
+                {eventFormError && (
+                  <div className={`${styles.alertBox} ${styles.alertError}`} role="alert">
+                    <AlertTriangle size={16} />
+                    <span>{eventFormError}</span>
+                  </div>
+                )}
+
+                <div className={styles.formGrid}>
+                  <div className={`${styles.formGroup} ${styles.formFull}`}>
+                    <label className={styles.formLabel}>Lifecycle Event Type *</label>
+                    <select
+                      className={styles.formSelect}
+                      value={eventForm.eventType}
+                      onChange={(e) => setEventForm({ ...eventForm, eventType: e.target.value })}
+                    >
+                      <option value="Birth">Birth of Child (Triggers maternal aid & NFSA expansion)</option>
+                      <option value="Marriage">Marriage (Triggers Kunwarbai nu Mameru)</option>
+                      <option value="HigherEducation">Higher Education Enrollment (Triggers MYSY scholarship)</option>
+                      <option value="Disability">Acquisition of Disability (Triggers PwD pension)</option>
+                      <option value="Bereavement">Passing of Household Member (Triggers survivor/widow pension)</option>
+                      <option value="Migration">Migration / Relocation within Gujarat</option>
+                    </select>
+                  </div>
+
+                  <div className={`${styles.formGroup} ${styles.formFull}`}>
+                    <label className={styles.formLabel}>Associated Member</label>
+                    <select
+                      className={styles.formSelect}
+                      value={eventForm.memberId}
+                      onChange={(e) => setEventForm({ ...eventForm, memberId: e.target.value })}
+                    >
+                      <option value="">{eventForm.eventType === 'Birth' ? '+ Newborn Child' : 'Entire Household'}</option>
+                      {members.map((m) => (
+                        <option key={m._id} value={m._id}>
+                          {m.name} ({m.relationToHead} · {m.age} yrs)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Event Date *</label>
+                    <input
+                      type="date"
+                      className={styles.formInput}
+                      value={eventForm.eventDate}
+                      onChange={(e) => setEventForm({ ...eventForm, eventDate: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Registration / Certificate No.</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. BRTH-2024-819"
+                      value={eventForm.registrationNumber}
+                      onChange={(e) => setEventForm({ ...eventForm, registrationNumber: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={`${styles.formGroup} ${styles.formFull}`}>
+                    <label className={styles.formLabel}>Officer Remarks / Additional Details</label>
+                    <textarea
+                      className={styles.formInput}
+                      rows={2}
+                      placeholder="e.g. Hospital certificate attached, registration at Gram Panchayat"
+                      value={eventForm.notes}
+                      onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => {
+                    setIsLifeEventOpen(false);
+                    setEventFormError('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={recordEventMutation.isPending}
+                >
+                  {recordEventMutation.isPending ? 'Reporting...' : 'Submit Life Event'}
                 </Button>
               </div>
             </form>

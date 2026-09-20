@@ -15,7 +15,14 @@ export const v2AdminService = {
   getRiskSignals: (params) => apiGet('/risk-signals', params),
 
   // Government Data Connector Status
-  getIntegrationsStatus: () => apiGet('/integrations/status'),
+  getConnectorsStatus: () => apiGet('/integrations/status'),
+
+  // Document & Master Verification
+  verifyDocument: (familyId, certNumber) => apiPost(`/families/${familyId}/documents/${certNumber}/verify`),
+  verifyFamily: (familyId, action = 'Approve', verificationNotes = '') => apiPost(`/families/${familyId}/verify`, { action, verificationNotes }),
+
+  // Governance Engine Simulation
+  simulateLifeEvent: (familyId, payload) => apiPost(`/families/${familyId}/simulate-life-event`, payload),
 };
 
 export default v2AdminService;

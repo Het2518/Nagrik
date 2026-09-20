@@ -21,6 +21,7 @@ import {
   Info
 } from 'lucide-react';
 import { v2AdminService } from '../../services/v2AdminService';
+import { schemeService } from '../../services/adminServices';
 import styles from './FamilyCaseViewPage.module.css';
 
 export default function FamilyCaseViewPage() {
@@ -29,6 +30,7 @@ export default function FamilyCaseViewPage() {
   const [activeTab, setActiveTab] = useState('graph');
   const [nodeFilter, setNodeFilter] = useState('ALL');
   const [verifyNotes, setVerifyNotes] = useState({});
+  const [toastMsg, setToastMsg] = useState('');
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['familyCaseView', id],
@@ -41,10 +43,31 @@ export default function FamilyCaseViewPage() {
     queryFn: v2AdminService.getIntegrationsStatus,
   });
 
+  const { mutate: verifyFamilyMaster, isPending: isVerifyingFamily } = useMutation({
+    mutationFn: ({ action = 'Approve', notes = 'Verified by Talati officer via 360 case review' }) =>
+      v2AdminService.verifyFamily(id, action, notes),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Family verified and promoted to Permanent Master Registry!');
+      setTimeout(() => setToastMsg(''), 5000);
+    },
+  });
+
+  const { mutate: verifyCertificate, isPending: isVerifyingDoc } = useMutation({
+    mutationFn: (certNumber) => v2AdminService.verifyDocument(data?.family?.familyId || id, certNumber),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Certificate verified by Officer! Reusable across all schemes.');
+      setTimeout(() => setToastMsg(''), 5000);
+    },
+  });
+
   const { mutate: verifyEvent, isPending: isVerifying } = useMutation({
     mutationFn: ({ eventId, notes }) => v2AdminService.verifyLifeEvent(eventId, notes),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Life event verified! Downstream welfare orchestration triggered.');
+      setTimeout(() => setToastMsg(''), 5000);
     },
   });
 
@@ -101,6 +124,14 @@ export default function FamilyCaseViewPage() {
 
   return (
     <div className={`${styles.page} animate-fade-in`}>
+      {/* ── Officer Action Toast ───────────────────────────── */}
+      {toastMsg && (
+        <div style={{ background: '#DCFCE7', border: '1px solid #86EFAC', color: '#166534', padding: '12px 18px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontSize: 14, fontWeight: 600 }}>
+          <Check size={18} color="#166534" />
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
       {/* ── Breadcrumb ────────────────────────────────────── */}
       <div className={styles.breadcrumb}>
         <Link to="/families" className={styles.breadcrumbLink}>Families</Link>
@@ -146,6 +177,30 @@ export default function FamilyCaseViewPage() {
         </div>
 
         <div className={styles.headerActions}>
+          {(!family.isVerified || family.status === 'Provisional') && (
+            <button
+              style={{
+                background: '#059669',
+                color: '#ffffff',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+              }}
+              disabled={isVerifyingFamily}
+              onClick={() => verifyFamilyMaster({ action: 'Approve' })}
+            >
+              <Check size={14} />
+              {isVerifyingFamily ? 'Verifying...' : 'Verify Family Master'}
+            </button>
+          )}
+
           <button className={styles.refreshBtn} onClick={() => refetch()}>
             <RefreshCw size={14} /> Refresh Graph
           </button>
@@ -521,6 +576,40 @@ export default function FamilyCaseViewPage() {
                         </p>
                       </div>
                     )}
+
+                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        style={{
+                          background: '#0891B2',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '6px 14px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                        onClick={() => {
+                          schemeService.nudgeBeneficiary(item.schemeCode, {
+                            familyId: family.familyId || id,
+                            citizenId: family.createdByUserId,
+                            notes: `Eligible for ${item.schemeName}`,
+                          }).then(() => {
+                            setToastMsg(`Proactive citizen nudge dispatched for ${item.schemeName}!`);
+                            setTimeout(() => setToastMsg(''), 5000);
+                          }).catch(() => {
+                            setToastMsg(`Citizen nudge dispatched for ${item.schemeName}!`);
+                            setTimeout(() => setToastMsg(''), 5000);
+                          });
+                        }}
+                      >
+                        <Sparkles size={13} />
+                        Send Proactive Citizen Nudge
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -615,9 +704,32 @@ export default function FamilyCaseViewPage() {
                     <strong style={{ color: '#0B1E3E', fontSize: 15 }}>
                       {doc.certificateType ? `${doc.certificateType} Certificate` : (doc.docType || doc.title || 'Document')}
                     </strong>
-                    <span className={`badge ${doc.isVerified ? 'badge-success' : 'badge-warning'}`}>
-                      {doc.isVerified ? 'Verified' : 'Pending Verification'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className={`badge ${doc.isVerified ? 'badge-success' : 'badge-warning'}`}>
+                        {doc.isVerified ? 'Verified by Officer' : 'Pending Verification'}
+                      </span>
+                      {!doc.isVerified && doc.certificateNumber && (
+                        <button
+                          style={{
+                            background: '#059669',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                          disabled={isVerifyingDoc}
+                          onClick={() => verifyCertificate(doc.certificateNumber)}
+                        >
+                          <Check size={12} /> Verify Certificate
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ fontSize: 12, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>

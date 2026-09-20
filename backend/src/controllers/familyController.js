@@ -517,6 +517,90 @@ const addFamilyDocument = async (req, res, next) => {
   }
 };
 
+// POST /api/v1/families/:familyId/documents/:certNumber/verify — officer verifies a certificate
+const verifyFamilyDocument = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+
+    const certNum = req.params.certNumber.trim().toUpperCase();
+    const doc = await DocumentReference.findOne({ certificateNumber: certNum });
+    if (!doc) return next(createApiError(404, 'Document reference not found'));
+
+    doc.isVerifiedByOfficer = true;
+    await doc.save();
+
+    await logAction({
+      action: 'FAMILY_DOCUMENT_VERIFIED',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'DocumentReference',
+      entityId: doc.certificateNumber,
+      changedFields: { isVerifiedByOfficer: true, familyId: family.familyId },
+    });
+
+    // Re-evaluate family scheme eligibility in background
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'DOCUMENT_VERIFIED', {
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      certificateType: doc.certificateType,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating doc verify:', e?.message));
+
+    sendSuccess(res, { message: 'Document verified successfully', document: doc });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/v1/families/:familyId/documents/:certNumber — remove/unlink document from family
+const deleteFamilyDocument = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+
+    if (
+      req.user.role === 'Citizen' &&
+      family.createdByUserId?.toString() !== req.user.id.toString()
+    ) {
+      return next(createApiError(403, 'You can only manage documents of your own family'));
+    }
+
+    const certNum = req.params.certNumber.trim().toUpperCase();
+    const doc = await DocumentReference.findOne({ certificateNumber: certNum });
+    if (!doc) return next(createApiError(404, 'Document reference not found'));
+
+    // Unlink family from document
+    doc.linkedFamilyIds = doc.linkedFamilyIds.filter(
+      (id) => id.toString() !== family._id.toString()
+    );
+    if (doc.linkedFamilyIds.length === 0) {
+      await DocumentReference.deleteOne({ _id: doc._id });
+    } else {
+      await doc.save();
+    }
+
+    await logAction({
+      action: 'FAMILY_DOCUMENT_REMOVED',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'DocumentReference',
+      entityId: certNum,
+      changedFields: { familyId: family.familyId },
+    });
+
+    // Re-evaluate family scheme eligibility
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'DOCUMENT_REMOVED', {
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      certificateType: doc.certificateType,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating doc remove:', e?.message));
+
+    sendSuccess(res, { message: 'Document unlinked successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   registerFamily,
   getFamilyProfile,
@@ -530,4 +614,6 @@ module.exports = {
   verifyFamily,
   getFamilyDocuments,
   addFamilyDocument,
+  verifyFamilyDocument,
+  deleteFamilyDocument,
 };

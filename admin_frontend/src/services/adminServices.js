@@ -12,10 +12,11 @@ export const dashboardService = {
 };
 
 export const familyService = {
-  search:     (params) => apiGet('/families', params),
-  getById:    (id)     => apiGet(`/families/${id}`),
-  verify:     (id)     => apiPost(`/families/${id}/verify`),
-  setStatus:  (id, s)  => apiPatch(`/families/${id}/status`, { status: s }),
+  search:         (params) => apiGet('/families', params),
+  getById:        (id)     => apiGet(`/families/${id}`),
+  verify:         (id, notes) => apiPost(`/families/${id}/verify`, { action: 'Approve', verificationNotes: notes }),
+  setStatus:      (id, s)  => apiPatch(`/families/${id}/status`, { status: s }),
+  verifyDocument: (familyId, certNumber) => apiPost(`/families/${familyId}/documents/${certNumber}/verify`),
 };
 
 export const applicationService = {

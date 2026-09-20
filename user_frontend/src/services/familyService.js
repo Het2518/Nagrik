@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './api';
+import { apiGet, apiPost, apiPatch, apiDelete } from './api';
 
 export const familyService = {
   register:         (data)               => apiPost('/families', data),
@@ -10,4 +10,5 @@ export const familyService = {
   getApplications:  (familyId)           => apiGet(`/families/${familyId}/applications`),
   getDocuments:     (familyId)           => apiGet(`/families/${familyId}/documents`),
   addDocument:      (familyId, data)     => apiPost(`/families/${familyId}/documents`, data),
+  deleteDocument:   (familyId, certNum)  => apiDelete(`/families/${familyId}/documents/${certNum}`),
 };

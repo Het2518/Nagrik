@@ -482,6 +482,132 @@
   border: 1px solid #86EFAC;
 }
 
+/* ── Document Actions & Editing ──────────────────────────────── */
+.docActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.docActionBtn {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.docActionBtn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+.deleteDocBtn {
+  background: transparent;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-md);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #DC2626;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.deleteDocBtn:hover {
+  background: #FEE2E2;
+}
+
+/* ── Governance & Life Events Section ────────────────────────── */
+.governanceSection {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  color: #ffffff;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: 0 8px 24px rgba(49, 46, 129, 0.15);
+}
+.governanceTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.governanceTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+}
+.governanceSubtitle {
+  font-size: var(--text-xs);
+  color: #C7D2FE;
+  margin: 4px 0 0;
+}
+.reportEventBtn {
+  background: #38BDF8;
+  color: #0C4A6E;
+  font-weight: 700;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.reportEventBtn:hover {
+  background: #7DD3FC;
+  transform: translateY(-1px);
+}
+.eventPresetsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.presetCard {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.presetCard:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: #38BDF8;
+}
+.presetTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #F8FAFC;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.presetDesc {
+  font-size: 11px;
+  color: #E2E8F0;
+  margin: 0;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -492,4 +618,5 @@
   .addressGrid { grid-template-columns: 1fr 1fr; }
   .formGrid { grid-template-columns: 1fr; }
   .docGrid { grid-template-columns: 1fr; }
+  .eventPresetsGrid { grid-template-columns: 1fr; }
 }
