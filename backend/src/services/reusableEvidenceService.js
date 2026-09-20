@@ -32,6 +32,8 @@ class ReusableEvidenceService {
         issuingAuthority: doc.issuingAuthority,
         issueDate: doc.issueDate,
         expiryDate: doc.expiryDate,
+        docUrl: doc.docUrl || null,
+        fileName: doc.fileName || null,
         isVerified: doc.isVerifiedByOfficer,
         isExpired: doc.expiryDate ? new Date(doc.expiryDate) < new Date() : false,
         daysUntilExpiry: doc.expiryDate

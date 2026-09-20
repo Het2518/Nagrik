@@ -16,6 +16,7 @@ import {
   X,
   FileText,
   ShieldCheck,
+  Upload,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { familyService } from '../../services/familyService';
@@ -63,6 +64,15 @@ export default function HomePage() {
     queryFn: () => applicationService.list(),
     enabled: !!familyId,
   });
+
+  // 4. Family Documents Locker
+  const { data: docRegistry } = useQuery({
+    queryKey: ['familyDocuments', familyId],
+    queryFn: () => familyService.getDocuments(familyId),
+    enabled: !!familyId,
+  });
+
+  const evidenceList = docRegistry?.evidenceList || [];
 
   // Simulation Mutation
   const simMutation = useMutation({
@@ -141,6 +151,55 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* ── Document Locker Onboarding / Action Banner ─────── */}
+      {familyId && (
+        <section className={styles.lockerNudgeCard}>
+          <div className={styles.lockerNudgeLeft}>
+            <div className={styles.lockerNudgeBadge}>
+              <Sparkles size={14} />
+              <span>Instant Scheme Eligibility Engine</span>
+            </div>
+            <h2 className={styles.lockerNudgeTitle}>
+              {evidenceList.length === 0
+                ? 'Upload Standard Household Documents in Profile'
+                : `Family Evidence Locker: ${evidenceList.length} Certificates Active`}
+            </h2>
+            <p className={styles.lockerNudgeSubtitle}>
+              {evidenceList.length === 0
+                ? 'Upload your Income, Caste, and Ration certificates once. Nagrik automatically auto-matches which schemes your family qualifies for and unlocks 1-Click Fast-Track applying.'
+                : 'Your certificates are securely stored in your Evidence Locker. All schemes automatically pre-fill your documents and auto-verify eligibility.'}
+            </p>
+            <div className={styles.lockerNudgePills}>
+              <span className={evidenceList.some((d) => d.certificateType === 'Income') ? styles.pillReady : styles.pillPending}>
+                {evidenceList.some((d) => d.certificateType === 'Income') ? '✓ Income Certificate' : '+ Income Certificate'}
+              </span>
+              <span className={evidenceList.some((d) => d.certificateType === 'Caste') ? styles.pillReady : styles.pillPending}>
+                {evidenceList.some((d) => d.certificateType === 'Caste') ? '✓ Caste Certificate' : '+ Caste Certificate'}
+              </span>
+              <span className={evidenceList.some((d) => d.certificateType === 'RationCard') ? styles.pillReady : styles.pillPending}>
+                {evidenceList.some((d) => d.certificateType === 'RationCard') ? '✓ Ration Card' : '+ Ration Card'}
+              </span>
+              <span className={evidenceList.some((d) => d.certificateType === 'Domicile') ? styles.pillReady : styles.pillPending}>
+                {evidenceList.some((d) => d.certificateType === 'Domicile') ? '✓ Domicile' : '+ Domicile'}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.lockerNudgeActions}>
+            <Link to="/profile">
+              <Button variant="secondary" size="md" icon={<Upload size={16} />}>
+                {evidenceList.length === 0 ? 'Upload Documents in Profile' : 'Manage Profile Locker'}
+              </Button>
+            </Link>
+            <Link to="/schemes">
+              <Button variant="outline" size="md" icon={<Sparkles size={16} />}>
+                View Eligible Schemes
+              </Button>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* ── No Family CTA ──────────────────────────────────── */}
       {!familyId && !familyLoading && (

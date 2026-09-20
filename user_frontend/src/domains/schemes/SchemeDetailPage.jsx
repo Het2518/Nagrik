@@ -208,15 +208,23 @@ export default function SchemeDetailPage() {
                     </div>
 
                     {user?.familyId && (
-                      <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {inLocker ? (
                           <span style={{ background: '#DCFCE7', color: '#166534', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
                             ✓ In Family Locker
                           </span>
                         ) : (
-                          <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
-                            Upload Needed
-                          </span>
+                          <>
+                            <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+                              Upload Needed
+                            </span>
+                            <Link
+                              to="/profile"
+                              style={{ fontSize: 11, color: '#0284C7', textDecoration: 'underline', fontWeight: 600 }}
+                            >
+                              Upload to Locker →
+                            </Link>
+                          </>
                         )}
                       </div>
                     )}

@@ -464,7 +464,7 @@ const addFamilyDocument = async (req, res, next) => {
       return next(createApiError(403, 'You can only add documents to your own family'));
     }
 
-    const { certificateNumber, certificateType, issuingAuthority, issueDate, expiryDate } = req.body;
+    const { certificateNumber, certificateType, issuingAuthority, issueDate, expiryDate, docUrl, fileName } = req.body;
     if (!certificateNumber || !certificateType || !issuingAuthority || !issueDate) {
       return next(createApiError(400, 'certificateNumber, certificateType, issuingAuthority, and issueDate are required'));
     }
@@ -481,6 +481,8 @@ const addFamilyDocument = async (req, res, next) => {
       doc.issuingAuthority = issuingAuthority.trim();
       doc.issueDate = new Date(issueDate);
       if (expiryDate) doc.expiryDate = new Date(expiryDate);
+      if (docUrl) doc.docUrl = docUrl;
+      if (fileName) doc.fileName = fileName;
       if (req.user.role !== 'Citizen') doc.isVerifiedByOfficer = true;
       await doc.save();
     } else {
@@ -490,6 +492,8 @@ const addFamilyDocument = async (req, res, next) => {
         issuingAuthority: issuingAuthority.trim(),
         issueDate: new Date(issueDate),
         expiryDate: expiryDate ? new Date(expiryDate) : null,
+        docUrl: docUrl || null,
+        fileName: fileName || null,
         isVerifiedByOfficer: req.user.role !== 'Citizen',
         linkedFamilyIds: [family._id],
       });

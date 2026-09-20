@@ -15,6 +15,8 @@ const documentReferenceSchema = new mongoose.Schema(
     // Income certificates and others expire — null means no expiry tracked
     expiryDate: { type: Date, default: null },
     isVerifiedByOfficer: { type: Boolean, default: false },
+    docUrl: { type: String, default: null },
+    fileName: { type: String, default: null },
     linkedApplicationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Application' }],
     linkedFamilyIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Family' }],
   },

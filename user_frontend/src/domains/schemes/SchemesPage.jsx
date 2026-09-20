@@ -2,15 +2,28 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Filter, CheckCircle2, AlertCircle, Info, Sparkles } from 'lucide-react';
+import { Search, Filter, CheckCircle2, AlertCircle, Info, Sparkles, Zap, ShieldCheck } from 'lucide-react';
 import { schemeService } from '../../services/schemeService';
 import { eligibilityService } from '../../services/eligibilityService';
+import { familyService } from '../../services/familyService';
 import { useAuthStore } from '../../store/authStore';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import styles from './SchemesPage.module.css';
 
 const CATEGORIES = ['All', 'Housing', 'Education', 'Health', 'Pension', 'Agriculture', 'Employment', 'Disability', 'Women'];
+
+const DOC_MAPPING = {
+  income_certificate: 'Income',
+  caste_certificate: 'Caste',
+  ration_card: 'RationCard',
+  domicile_certificate: 'Domicile',
+  marksheet: 'Marksheet',
+  disability_certificate: 'Disability',
+  electricity_bill: 'ElectricityBill',
+  bocw_card: 'BOCW',
+  bank_passbook: 'BankPassbook',
+};
 
 export default function SchemesPage() {
   const { t } = useTranslation();
@@ -29,6 +42,30 @@ export default function SchemesPage() {
     queryFn: () => eligibilityService.check(user.familyId),
     enabled: !!user?.familyId,
   });
+
+  const { data: docRegistry } = useQuery({
+    queryKey: ['familyDocuments', user?.familyId],
+    queryFn: () => familyService.getDocuments(user.familyId),
+    enabled: !!user?.familyId,
+  });
+
+  const { data: familyData } = useQuery({
+    queryKey: ['family', user?.familyId],
+    queryFn: () => familyService.getProfile(user.familyId),
+    enabled: !!user?.familyId,
+  });
+
+  const evidenceList = docRegistry?.evidenceList || [];
+  const family = familyData?.family;
+
+  const isDocInLocker = (docKey) => {
+    const certType = DOC_MAPPING[docKey];
+    return evidenceList.some(
+      (e) =>
+        e.certificateType === certType ||
+        e.certificateType?.toLowerCase() === docKey?.toLowerCase()
+    );
+  };
 
   // Build a comprehensive lookup map: schemeCode & schemeId → family eligibility
   const schemeEligibilityMap = {};
@@ -179,6 +216,26 @@ export default function SchemesPage() {
         ))}
       </div>
 
+      {/* ── Active Eligible Notice Banner ──────────────────── */}
+      {user?.familyId && eligibilityFilter === 'ELIGIBLE' && (
+        <div className={styles.eligibleNoticeBanner}>
+          <div>
+            <Sparkles size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+            <span>
+              Showing <strong>{filteredSchemes.length} schemes</strong> auto-qualified for your household
+              {family?.category ? ` (${family.category} category)` : ''}. Documents are auto-matched from your Evidence Locker.
+            </span>
+          </div>
+          <button
+            type="button"
+            className={styles.bannerClearBtn}
+            onClick={() => setEligibilityFilter('ALL')}
+          >
+            Show All ({allSchemes.length})
+          </button>
+        </div>
+      )}
+
       {/* ── Schemes Grid ─────────────────────────────────── */}
       {isLoading ? (
         <div className={styles.grid}>
@@ -215,6 +272,10 @@ export default function SchemesPage() {
             const failedRules = elig?.failedRules || [];
             const qualifyingMembers = elig?.qualifyingMembers || [];
 
+            const requiredDocs = scheme.requiredDocuments?.filter((d) => d.required) || [];
+            const readyDocsCount = requiredDocs.filter((d) => isDocInLocker(d.docKey)).length;
+            const allDocsReady = requiredDocs.length > 0 && readyDocsCount === requiredDocs.length;
+
             return (
               <Link key={scheme._id} to={`/schemes/${scheme.schemeCode}`} className={styles.schemeLink}>
                 <Card
@@ -248,6 +309,23 @@ export default function SchemesPage() {
                   )}
 
                   <p className={styles.schemeDesc}>{scheme.description?.slice(0, 95)}...</p>
+
+                  {/* Document Readiness Badges */}
+                  {hasChecked && isEligible && (
+                    <div style={{ marginBottom: 8 }}>
+                      {allDocsReady ? (
+                        <div className={styles.fastTrackBadge}>
+                          <Zap size={12} />
+                          <span>1-Click Fast-Track Ready</span>
+                        </div>
+                      ) : requiredDocs.length > 0 ? (
+                        <div className={styles.lockerSyncBadge}>
+                          <ShieldCheck size={12} />
+                          <span>{readyDocsCount}/{requiredDocs.length} Docs in Locker</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
 
                   {/* If Eligible: Show which member qualifies */}
                   {hasChecked && isEligible && qualifyingMembers.length > 0 && (
