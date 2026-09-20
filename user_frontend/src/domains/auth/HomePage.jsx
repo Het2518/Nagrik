@@ -137,17 +137,17 @@ export default function HomePage() {
             >
               {analysisFetching ? t('v2.analyzing') : t('v2.analyze_btn')}
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
+            <button
+              type="button"
+              className={styles.simulateHeroBtn}
               onClick={() => {
                 setSimModalOpen(true);
                 handleSimulate('AgeThresholdReached');
               }}
-              icon={<Zap size={18} />}
             >
-              {t('v2.simulate_event')}
-            </Button>
+              <Zap size={18} color="#FBBF24" />
+              <span>{t('v2.simulate_event')}</span>
+            </button>
           </div>
         )}
       </section>
