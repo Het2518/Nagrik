@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, XCircle, FileText, ArrowLeft, ArrowRight } from 'lucide-react';
 import { schemeService } from '../../services/schemeService';
 import { eligibilityService } from '../../services/eligibilityService';
+import { familyService } from '../../services/familyService';
 import { useAuthStore } from '../../store/authStore';
 import StatusChip from '../../components/ui/StatusChip';
 import Button from '../../components/ui/Button';
@@ -25,6 +26,36 @@ export default function SchemeDetailPage() {
     queryFn: () => eligibilityService.check(user.familyId),
     enabled: !!user?.familyId,
   });
+
+  const { data: docRegistry } = useQuery({
+    queryKey: ['familyDocuments', user?.familyId],
+    queryFn: () => familyService.getDocuments(user.familyId),
+    enabled: !!user?.familyId,
+  });
+
+  const evidenceList = docRegistry?.evidenceList || [];
+
+  const isDocInLocker = (docKey) => {
+    if (!evidenceList.length || !docKey) return false;
+    const k = docKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return evidenceList.some((ev) => {
+      const t = (ev.certificateType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return (
+        k.includes(t) ||
+        t.includes(k) ||
+        (k.includes('income') && t.includes('income')) ||
+        (k.includes('caste') && t.includes('caste')) ||
+        (k.includes('ration') && t.includes('ration')) ||
+        (k.includes('domicile') && t.includes('domicile')) ||
+        (k.includes('marksheet') && t.includes('marksheet')) ||
+        (k.includes('education') && t.includes('marksheet')) ||
+        (k.includes('disability') && t.includes('disability')) ||
+        (k.includes('bocw') && t.includes('bocw')) ||
+        (k.includes('bank') && t.includes('bank')) ||
+        (k.includes('passbook') && t.includes('bank'))
+      );
+    });
+  };
 
   if (isLoading) {
     return <div className={styles.loading}><div className="skeleton" style={{ height: 200, borderRadius: 16 }} /></div>;
@@ -65,11 +96,40 @@ export default function SchemeDetailPage() {
 
         <div className={styles.applySection}>
           {canApply ? (
-            <Link to={`/schemes/${schemeCode}/apply`}>
-              <Button variant="secondary" size="lg" icon={<ArrowRight size={20} />} iconPosition="right">
-                {t('schemes.apply')}
-              </Button>
-            </Link>
+            <div>
+              <Link to={`/schemes/${schemeCode}/apply`}>
+                <Button variant="secondary" size="lg" icon={<ArrowRight size={20} />} iconPosition="right">
+                  {t('schemes.apply')}
+                </Button>
+              </Link>
+              {user?.familyId && (scheme.requiredDocuments?.filter((d) => d.required).length || 0) > 0 && (
+                <p
+                  style={{
+                    fontSize: 12,
+                    marginTop: 8,
+                    color:
+                      (scheme.requiredDocuments?.filter((d) => d.required).length || 0) -
+                        (scheme.requiredDocuments?.filter((d) => d.required && isDocInLocker(d.docKey)).length || 0) ===
+                      0
+                        ? '#15803D'
+                        : '#D97706',
+                    fontWeight: 600,
+                  }}
+                >
+                  {(scheme.requiredDocuments?.filter((d) => d.required).length || 0) -
+                    (scheme.requiredDocuments?.filter((d) => d.required && isDocInLocker(d.docKey)).length || 0) ===
+                  0
+                    ? `✓ 1-Click Fast-Track: All ${
+                        scheme.requiredDocuments?.filter((d) => d.required).length
+                      } required certificates ready in Family Locker`
+                    : `ℹ️ ${
+                        scheme.requiredDocuments?.filter((d) => d.required && isDocInLocker(d.docKey)).length || 0
+                      } of ${
+                        scheme.requiredDocuments?.filter((d) => d.required).length || 0
+                      } documents ready in Family Locker`}
+                </p>
+              )}
+            </div>
           ) : !user?.familyId ? (
             <Link to="/onboarding">
               <Button variant="outline" size="lg">Register Family to Apply</Button>
@@ -123,20 +183,46 @@ export default function SchemeDetailPage() {
           </Card>
         )}
 
-        {/* ── Required Documents ───────────────────────── */}
+        {/* ── Required Documents with Smart Locker Sync ── */}
         {scheme.requiredDocuments?.length > 0 && (
           <Card>
-            <h2 className={styles.sectionTitle}>{t('schemes.required_documents')}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h2 className={styles.sectionTitle} style={{ margin: 0 }}>{t('schemes.required_documents')}</h2>
+              {user?.familyId && (
+                <span style={{ fontSize: 11, color: '#059669', fontWeight: 700, background: '#DCFCE7', padding: '3px 8px', borderRadius: 12 }}>
+                  ✓ Family Locker Sync
+                </span>
+              )}
+            </div>
             <ul className={styles.docList}>
-              {scheme.requiredDocuments.map((doc) => (
-                <li key={doc.docKey} className={styles.docItem}>
-                  <FileText size={16} color="var(--color-navy-700)" />
-                  <div>
-                    <span className={styles.docName}>{doc.label}</span>
-                    {!doc.required && <span className={styles.optional}>(Optional)</span>}
-                  </div>
-                </li>
-              ))}
+              {scheme.requiredDocuments.map((doc) => {
+                const inLocker = isDocInLocker(doc.docKey);
+                return (
+                  <li key={doc.docKey} className={styles.docItem} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <FileText size={16} color="var(--color-navy-700)" />
+                      <div>
+                        <span className={styles.docName}>{doc.label}</span>
+                        {!doc.required && <span className={styles.optional}> (Optional)</span>}
+                      </div>
+                    </div>
+
+                    {user?.familyId && (
+                      <div>
+                        {inLocker ? (
+                          <span style={{ background: '#DCFCE7', color: '#166534', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+                            ✓ In Family Locker
+                          </span>
+                        ) : (
+                          <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+                            Upload Needed
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </Card>
         )}
