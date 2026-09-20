@@ -212,19 +212,26 @@ const getOfficerFamilyCaseView = async (req, res, next) => {
     });
     if (!family) return next(createApiError(404, 'Family not found'));
 
-    const [graph, gaps, riskSignals, tasks] = await Promise.all([
+    const [graph, gaps, riskSignals, tasks, members, evidenceData, lifeEvents] = await Promise.all([
       familyBenefitGraphService.buildGraph(family._id),
       benefitGapDetector.detectGaps(family),
       riskIntelligenceService.getFamilyRiskSignals(family._id),
       OfficerTask.find({ familyId: family._id }).sort({ createdAt: -1 }).lean(),
+      Member.find({ familyId: family._id }).lean(),
+      reusableEvidenceService.getFamilyEvidenceRegistry(family._id),
+      LifeEvent.find({ familyId: family._id }).sort({ createdAt: -1 }).lean(),
     ]);
 
     sendSuccess(res, {
       family,
+      members,
       graph,
       benefitGaps: gaps,
+      reusableEvidence: evidenceData?.evidenceList || [],
+      lifeEvents,
       riskSignals,
       officerTasks: tasks,
+      tasks,
     });
   } catch (err) {
     next(err);

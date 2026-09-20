@@ -11,7 +11,13 @@ const { sendSuccess, createApiError } = require('../utils/apiResponse');
 // Returns eligibility for all active members in the family, or a single member if memberId is specified.
 const getEligibility = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const isObjectId = String(req.params.familyId).match(/^[0-9a-fA-F]{24}$/);
+    const family = await Family.findOne({
+      $or: [
+        { _id: isObjectId ? req.params.familyId : null },
+        { familyId: String(req.params.familyId) },
+      ],
+    });
     if (!family) return next(createApiError(404, 'Family not found'));
 
     const memberFilter = { familyId: family._id, lifecycleStatus: 'Active' };
@@ -50,7 +56,7 @@ const getEligibility = async (req, res, next) => {
       };
     });
 
-    sendSuccess(res, { familyId: req.params.familyId, eligibility: results });
+    sendSuccess(res, { familyId: family.familyId, eligibility: results });
   } catch (err) {
     next(err);
   }

@@ -8,4 +8,6 @@ export const familyService = {
   getMember:        (familyId, memberId) => apiGet(`/families/${familyId}/members/${memberId}`),
   updateMember:     (familyId, memberId, data) => apiPatch(`/families/${familyId}/members/${memberId}/profile`, data),
   getApplications:  (familyId)           => apiGet(`/families/${familyId}/applications`),
+  getDocuments:     (familyId)           => apiGet(`/families/${familyId}/documents`),
+  addDocument:      (familyId, data)     => apiPost(`/families/${familyId}/documents`, data),
 };

@@ -7,7 +7,7 @@ const documentReferenceSchema = new mongoose.Schema(
     certificateNumber: { type: String, required: true, trim: true, uppercase: true },
     certificateType: {
       type: String,
-      enum: ['Income', 'Caste', 'Disability', 'Marksheet', 'Other'],
+      enum: ['Income', 'Caste', 'Disability', 'Marksheet', 'RationCard', 'Domicile', 'BOCW', 'ElectricityBill', 'BankPassbook', 'Other'],
       required: true,
     },
     issuingAuthority: { type: String, required: true, trim: true },

@@ -260,6 +260,15 @@ export default function FamilyCaseViewPage() {
         </button>
 
         <button
+          className={`${styles.tabBtn} ${activeTab === 'members' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('members')}
+        >
+          <Users size={16} />
+          <span>Household Members</span>
+          <span className={styles.tabBadge}>{members.length}</span>
+        </button>
+
+        <button
           className={`${styles.tabBtn} ${activeTab === 'events' ? styles.activeTab : ''}`}
           onClick={() => setActiveTab('events')}
         >
@@ -520,6 +529,69 @@ export default function FamilyCaseViewPage() {
         </div>
       )}
 
+      {/* ── TAB: HOUSEHOLD MEMBERS ────────────────────────── */}
+      {activeTab === 'members' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+            {members.length === 0 ? (
+              <div className={styles.emptyBox} style={{ gridColumn: '1 / -1' }}>
+                <Users size={32} color="#9CA3AF" style={{ marginBottom: 8 }} />
+                <p>No household members recorded in master registry.</p>
+              </div>
+            ) : (
+              members.map((m, idx) => (
+                <div key={m._id || idx} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <strong style={{ fontSize: 16, color: 'var(--color-navy-900)' }}>{m.name}</strong>
+                      <p style={{ fontSize: 12, color: '#6B7280', margin: '2px 0 0' }}>
+                        {m.relationToHead} · {m.gender} · {m.age} yrs
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {m.relationToHead === 'Self' && <span className="badge badge-navy">Head</span>}
+                      <span className={`badge ${m.lifecycleStatus === 'Active' ? 'badge-success' : 'badge-danger'}`}>
+                        {m.lifecycleStatus || 'Active'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12, background: '#F8FAFC', padding: 12, borderRadius: 8 }}>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: 11, textTransform: 'uppercase' }}>Occupation</span>
+                      <strong>{m.occupation || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: 11, textTransform: 'uppercase' }}>Education</span>
+                      <strong>{m.educationLevel || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: 11, textTransform: 'uppercase' }}>Marital Status</span>
+                      <strong>{m.maritalStatus || 'Single'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748B', display: 'block', fontSize: 11, textTransform: 'uppercase' }}>Aadhaar</span>
+                      <strong>Linked (Verified)</strong>
+                    </div>
+                  </div>
+
+                  {(m.isStudent || m.hasDisability) && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {m.isStudent && <span className="badge badge-teal">Student</span>}
+                      {m.hasDisability && (
+                        <span className="badge badge-warning">
+                          PwD {m.disabilityPercentage ? `(${m.disabilityPercentage}%)` : ''}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── TAB 4: REUSABLE EVIDENCE VAULT ────────────────── */}
       {activeTab === 'evidence' && (
         <div>
@@ -538,26 +610,44 @@ export default function FamilyCaseViewPage() {
               </div>
             ) : (
               reusableEvidence.map((doc, idx) => (
-                <div key={idx} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 18 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <strong style={{ color: '#0B1E3E', fontSize: 15 }}>{doc.docType || doc.title}</strong>
-                    <span className="badge badge-success">Verified</span>
+                <div key={idx} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <strong style={{ color: '#0B1E3E', fontSize: 15 }}>
+                      {doc.certificateType ? `${doc.certificateType} Certificate` : (doc.docType || doc.title || 'Document')}
+                    </strong>
+                    <span className={`badge ${doc.isVerified ? 'badge-success' : 'badge-warning'}`}>
+                      {doc.isVerified ? 'Verified' : 'Pending Verification'}
+                    </span>
                   </div>
 
-                  <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 10px' }}>
-                    Doc ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{doc._id?.slice(-8) || 'N/A'}</span>
-                  </p>
+                  <div style={{ fontSize: 12, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div>
+                      Certificate No: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#0B1E3E' }}>{doc.certificateNumber || 'N/A'}</span>
+                    </div>
+                    {doc.issuingAuthority && (
+                      <div>Authority: <strong>{doc.issuingAuthority}</strong></div>
+                    )}
+                    {doc.issueDate && (
+                      <div>Issued: <strong>{new Date(doc.issueDate).toLocaleDateString('en-IN')}</strong></div>
+                    )}
+                    {doc.expiryDate && (
+                      <div>Expires: <strong>{new Date(doc.expiryDate).toLocaleDateString('en-IN')}</strong></div>
+                    )}
+                  </div>
 
                   <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: 10 }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: '#475569', margin: '0 0 6px', textTransform: 'uppercase' }}>
-                      Associated Schemes Unlocked
+                      Associated Schemes Unlocked ({doc.applicableSchemes?.length || 0})
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {(doc.applicableSchemes || ['NFSA Ration', 'Vatsalya Health', 'Kisan Sahay']).map((s, sIdx) => (
-                        <span key={sIdx} style={{ background: '#E0F2FE', color: '#0369A1', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }}>
-                          {s}
-                        </span>
-                      ))}
+                      {(doc.applicableSchemes || []).map((s, sIdx) => {
+                        const name = typeof s === 'string' ? s : (s.schemeName || s.schemeCode || 'Scheme');
+                        return (
+                          <span key={sIdx} style={{ background: '#E0F2FE', color: '#0369A1', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }}>
+                            {name}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

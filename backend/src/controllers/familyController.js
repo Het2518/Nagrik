@@ -7,8 +7,22 @@ const Application = require('../models/Application');
 const { logAction } = require('../services/auditLogService');
 const { sendSuccess, createApiError } = require('../utils/apiResponse');
 const lifecycleTriggerService = require('../services/lifecycleTriggerService');
+const DocumentReference = require('../models/DocumentReference');
+const reusableEvidenceService = require('../services/reusableEvidenceService');
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+
+// Helper to find a family either by human-readable familyId (GJ-GND-2024-001) or MongoDB _id (6aafbdeb...)
+const findFamily = async (idOrCode) => {
+  if (!idOrCode) return null;
+  const isObjectId = String(idOrCode).match(/^[0-9a-fA-F]{24}$/);
+  return Family.findOne({
+    $or: [
+      { _id: isObjectId ? idOrCode : null },
+      { familyId: String(idOrCode) },
+    ],
+  });
+};
 
 // POST /api/v1/families
 const registerFamily = async (req, res, next) => {
@@ -57,7 +71,7 @@ const registerFamily = async (req, res, next) => {
 // GET /api/v1/families/:familyId
 const getFamilyProfile = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     const members = await Member.find({ familyId: family._id });
@@ -71,7 +85,7 @@ const getFamilyProfile = async (req, res, next) => {
 // Any update resets isVerified so an officer must re-check before benefits continue
 const updateFamilyProfile = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     // Citizens can only update their own family
@@ -154,7 +168,7 @@ const searchFamilies = async (req, res, next) => {
 // POST /api/v1/families/:familyId/members
 const addFamilyMember = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     // Citizens can only add members to their own family
@@ -206,7 +220,7 @@ const updateMemberStatus = async (req, res, next) => {
       return next(createApiError(400, 'lifecycleStatus must be Active, Deceased, or Migrated'));
     }
 
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     const member = await Member.findOne({ memberId: req.params.memberId, familyId: family._id });
@@ -267,7 +281,7 @@ const verifyFamily = async (req, res, next) => {
       return next(createApiError(400, 'action must be Approve or Reject'));
     }
 
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     if (family.status !== 'Provisional' && action === 'Reject') {
@@ -283,7 +297,6 @@ const verifyFamily = async (req, res, next) => {
       family.reVerificationDueAt = new Date(Date.now() + SIX_MONTHS_MS);
     } else if (action === 'Reject') {
       family.status = 'Deleted';
-      // Mark all members as deleted or migrated if needed, but keeping it simple for now
     }
 
     family.verificationNotes = verificationNotes?.trim() || '';
@@ -312,7 +325,7 @@ const verifyFamily = async (req, res, next) => {
 // GET /api/v1/families/:familyId/members/:memberId
 const getMember = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     const member = await Member.findOne({ memberId: req.params.memberId, familyId: family._id });
@@ -328,7 +341,7 @@ const getMember = async (req, res, next) => {
 // Citizen can update their own member's personal details (not lifecycle status — that's a separate endpoint)
 const updateMemberProfile = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     if (
@@ -386,7 +399,7 @@ const updateMemberProfile = async (req, res, next) => {
 // Returns all applications for a given family — citizen sees own, officer sees within jurisdiction
 const getFamilyApplications = async (req, res, next) => {
   try {
-    const family = await Family.findOne({ familyId: req.params.familyId });
+    const family = await findFamily(req.params.familyId);
     if (!family) return next(createApiError(404, 'Family not found'));
 
     if (req.user.role === 'Citizen') {
@@ -407,11 +420,98 @@ const getFamilyApplications = async (req, res, next) => {
     }
 
     const applications = await Application.find({ familyId: family._id })
-      .populate('schemeId', 'schemeName schemeCode benefitType maxBenefitAmount')
+      .populate('schemeId', 'schemeCode schemeName benefitType maxBenefitAmount')
       .populate('memberId', 'name gender dateOfBirth')
       .sort({ submittedAt: -1 });
 
-    sendSuccess(res, { familyId: req.params.familyId, applications, total: applications.length });
+    sendSuccess(res, { familyId: family.familyId, applications, total: applications.length });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/v1/families/:familyId/documents — list all registered family evidence
+const getFamilyDocuments = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+
+    // Citizens can only view their own family's documents
+    if (
+      req.user.role === 'Citizen' &&
+      family.createdByUserId?.toString() !== req.user.id.toString()
+    ) {
+      return next(createApiError(403, 'You can only view your own family\'s documents'));
+    }
+
+    const registry = await reusableEvidenceService.getFamilyEvidenceRegistry(family._id);
+    sendSuccess(res, { familyId: family.familyId, ...registry });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/families/:familyId/documents — add/register a verified document or certificate
+const addFamilyDocument = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+
+    if (
+      req.user.role === 'Citizen' &&
+      family.createdByUserId?.toString() !== req.user.id.toString()
+    ) {
+      return next(createApiError(403, 'You can only add documents to your own family'));
+    }
+
+    const { certificateNumber, certificateType, issuingAuthority, issueDate, expiryDate } = req.body;
+    if (!certificateNumber || !certificateType || !issuingAuthority || !issueDate) {
+      return next(createApiError(400, 'certificateNumber, certificateType, issuingAuthority, and issueDate are required'));
+    }
+
+    const certNum = certificateNumber.trim().toUpperCase();
+
+    // Check if document reference already exists
+    let doc = await DocumentReference.findOne({ certificateNumber: certNum });
+    if (doc) {
+      if (!doc.linkedFamilyIds.some((id) => id.toString() === family._id.toString())) {
+        doc.linkedFamilyIds.push(family._id);
+      }
+      doc.certificateType = certificateType;
+      doc.issuingAuthority = issuingAuthority.trim();
+      doc.issueDate = new Date(issueDate);
+      if (expiryDate) doc.expiryDate = new Date(expiryDate);
+      if (req.user.role !== 'Citizen') doc.isVerifiedByOfficer = true;
+      await doc.save();
+    } else {
+      doc = await DocumentReference.create({
+        certificateNumber: certNum,
+        certificateType,
+        issuingAuthority: issuingAuthority.trim(),
+        issueDate: new Date(issueDate),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        isVerifiedByOfficer: req.user.role !== 'Citizen',
+        linkedFamilyIds: [family._id],
+      });
+    }
+
+    await logAction({
+      action: 'FAMILY_DOCUMENT_ADDED',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'DocumentReference',
+      entityId: doc.certificateNumber,
+      changedFields: { certificateType, familyId: family.familyId },
+    });
+
+    // Re-evaluate family scheme eligibility in background with new evidence
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'DOCUMENT_UPLOADED', {
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      certificateType,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating doc add:', e?.message));
+
+    sendSuccess(res, { document: doc }, 201);
   } catch (err) {
     next(err);
   }
@@ -428,4 +528,6 @@ module.exports = {
   getFamilyApplications,
   updateMemberStatus,
   verifyFamily,
+  getFamilyDocuments,
+  addFamilyDocument,
 };

@@ -30,6 +30,7 @@ function AuthenticatedApp() {
           <Route path="/applications"                element={<ApplicationsPage />} />
           <Route path="/applications/:id"            element={<ApplicationDetailPage />} />
           <Route path="/family"                      element={<FamilyPage />} />
+          <Route path="/family/add-member"           element={<FamilyPage openAddModal={true} />} />
           <Route path="/onboarding"                  element={<OnboardingPage />} />
           <Route path="/profile"                     element={<ProfilePage />} />
           <Route path="*"                            element={<Navigate to="/home" replace />} />
