@@ -162,19 +162,19 @@ Nagrik/
 The database comes pre-populated with realistic Gujarat socio-economic household personas:
 
 ### A. Citizen Accounts
-| Name | Role / Persona | District & Profile | Login Mobile | OTP |
+| Name | Role / Persona | District & Profile | Login Mobile | Password |
 |:---|:---|:---|:---|:---|
-| **Ramesh Somabhai Patel** | Farmer / Head of Household | Gandhinagar (OBC, Small Farmer, 4 members) | `9876543210` | `123456` |
-| **Savitaben Dayabhai Vankar** | BPL Homemaker & Weaver | Gandhinagar (SC, BPL Antyodaya, 3 members) | `9876543211` | `123456` |
-| **Hareshbhai Nathabhai Rathod** | Urban Construction Worker | Ahmedabad (SEBC, BOCW Registered, 4 members) | `9876543212` | `123456` |
+| **Ramesh Somabhai Patel** *(Main Demo)* | Farmer / Head of Household | Gandhinagar (OBC, Small Farmer, 4 members) | `9876543210` | `Password123!` |
+| **Savitaben Dayabhai Vankar** | BPL Homemaker & Weaver | Gandhinagar (SC, BPL Antyodaya, 3 members) | `9876543211` | `Password123!` |
+| **Hareshbhai Prajapati** | Urban Worker | Ahmedabad (SEBC, 4 members) | `9876543212` | `Password123!` |
 
 ### B. Government Officer Accounts
 | Role | Name | Jurisdiction | Login ID | Password |
 |:---|:---|:---|:---|:---|
-| **Talati (Level 1)** | Talati Gandhinagar | Gandhinagar Rural | `TALATI-GND-01` | `Talati@123` |
-| **Mamlatdar (Level 2)** | Mamlatdar Gandhinagar | Gandhinagar Taluka | `MAMLATDAR-GND-01` | `Mamlatdar@123` |
-| **District Officer (Level 3)** | District Welfare Officer | Gandhinagar District | `OFFICER-GND-01` | `Officer@123` |
-| **State Admin** | Super Admin | Gujarat State | `ADMIN-STATE-01` | `Admin@123` |
+| **Talati (Level 1)** | Talati Khoraj | Khoraj Village, Gandhinagar | `TAL-001` | `Password123!` |
+| **Mamlatdar (Level 2)** | Mamlatdar Gandhinagar | Gandhinagar Taluka | `MAM-001` | `Password123!` |
+| **District Officer (Level 3)** | District Welfare Officer | Gandhinagar District | `DST-001` | `Password123!` |
+| **State Admin** | Super Admin | Gujarat State | `ADM-001` | `Password123!` |
 
 ---
 

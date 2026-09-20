@@ -16,23 +16,24 @@ This guide walks you through testing every feature of the Nagrik platform from b
 
 ## 🔑 Demo Credentials Cheatsheet
 
-### 1. Citizen Logins (Phone Number + OTP)
-*Use any Gujarat mobile number below with universal OTP: **`123456`***
+### 1. Citizen Logins (Mobile Number + Password)
+*Citizen Portal: [`https://nagrik-eosin.vercel.app/login`](https://nagrik-eosin.vercel.app/login)*
 
-| Citizen Name | Mobile Number | OTP | Profile & Household Type |
+| Citizen Name | Mobile Number | Password | Profile & Household Type |
 |:---|:---|:---|:---|
-| **Ramesh Somabhai Patel** | `9876543210` | `123456` | Farmer, Gandhinagar Rural (OBC, 4 members, daughter Hetal student) |
-| **Savitaben Dayabhai Vankar** | `9876543211` | `123456` | BPL Homemaker & Weaver (SC, Antyodaya ration card, 3 members) |
-| **Hareshbhai Nathabhai Rathod** | `9876543212` | `123456` | Urban Construction Worker, Ahmedabad (SEBC, BOCW registered) |
+| **Ramesh Somabhai Patel** *(Main Demo)* | `9876543210` | `Password123!` | Farmer, Gandhinagar (OBC, 4 members, daughter Hetal student) |
+| **Savitaben Dayabhai Vankar** | `9876543211` | `Password123!` | BPL Homemaker & Weaver (SC, Antyodaya ration card, 3 members) |
+| **Hareshbhai Prajapati** | `9876543212` | `Password123!` | Urban Worker, Ahmedabad (Risk Signal Demo) |
 
 ### 2. Government Officer Logins (Username + Password)
+*Admin Portal: [`http://localhost:5174/login`](http://localhost:5174/login)*
 
 | Role | Username / ID | Password | Jurisdiction |
 |:---|:---|:---|:---|
-| **Talati (Level 1 Reviewer)** | `TALATI-GND-01` | `Talati@123` | Gandhinagar Rural (Village Level) |
-| **Mamlatdar (Level 2 Approver)** | `MAMLATDAR-GND-01` | `Mamlatdar@123` | Gandhinagar Taluka (Taluka Level) |
-| **District Officer (Level 3 Sanction)**| `OFFICER-GND-01` | `Officer@123` | Gandhinagar District (Final Sanction) |
-| **Super Admin (State Government)** | `ADMIN-STATE-01` | `Admin@123` | Gujarat State-Wide (All Schemes) |
+| **Talati (Level 1 Reviewer)** | `TAL-001` | `Password123!` | Khoraj Village, Gandhinagar |
+| **Mamlatdar (Level 2 Approver)** | `MAM-001` | `Password123!` | Gandhinagar Taluka |
+| **District Officer (Level 3 Sanction)**| `DST-001` | `Password123!` | Gandhinagar District (Final Sanction) |
+| **Super Admin (State Government)** | `ADM-001` | `Password123!` | Gujarat State-Wide (All Schemes) |
 
 ---
 
