@@ -1,4 +1,4 @@
-import { apiPost, apiGet, apiPatch } from './api';
+import { apiPost, apiGet, apiPatch, apiDelete } from './api';
 
 export const authService = {
   loginTalati:   (d) => apiPost('/auth/officer/talati/login', d),
@@ -26,11 +26,14 @@ export const applicationService = {
 };
 
 export const schemeService = {
-  list:       (p)    => apiGet('/schemes', p),
-  getByCode:  (code) => apiGet(`/schemes/${code}`),
-  create:     (d)    => apiPost('/schemes', d),
-  update:     (code, d) => apiPatch(`/schemes/${code}`, d),
-  deactivate: (code) => apiPost(`/schemes/${code}/deactivate`),
+  list:             (p)       => apiGet('/schemes', p),
+  getByCode:        (code)    => apiGet(`/schemes/${code}`),
+  create:           (d)       => apiPost('/schemes', d),
+  update:           (code, d) => apiPatch(`/schemes/${code}`, d),
+  deactivate:       (code)    => apiDelete(`/schemes/${code}`),
+  getBeneficiaries: (code, p) => apiGet(`/schemes/${code}/beneficiaries`, p),
+  nudgeBeneficiary: (code, d) => apiPost(`/schemes/${code}/nudge`, d),
+  triggerCron:      (code)    => apiPost(`/schemes/${code}/evaluate-cron`),
 };
 
 export const auditService = {

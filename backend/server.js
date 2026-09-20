@@ -20,6 +20,7 @@ const auditLogRoutes = require('./src/routes/auditLogRoutes');
 const integrationRoutes = require('./src/routes/integrationRoutes');
 const uploadRoutes      = require('./src/routes/uploadRoutes');
 const v2Routes          = require('./src/routes/v2Routes');
+const cronService       = require('./src/services/cronService');
 
 const app = express();
 
@@ -96,5 +97,8 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
-  app.listen(PORT, () => console.log(`🚀 Nagrik API running on port ${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`🚀 Nagrik API running on port ${PORT}`);
+    cronService.initScheduledJobs();
+  });
 });

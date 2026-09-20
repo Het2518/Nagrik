@@ -6,6 +6,7 @@ const CitizenUser = require('../models/CitizenUser');
 const Application = require('../models/Application');
 const { logAction } = require('../services/auditLogService');
 const { sendSuccess, createApiError } = require('../utils/apiResponse');
+const lifecycleTriggerService = require('../services/lifecycleTriggerService');
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 
@@ -109,6 +110,13 @@ const updateFamilyProfile = async (req, res, next) => {
       changedFields: { before: previousValues, after: updates },
     });
 
+    // Re-evaluate family scheme eligibility in background
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'FAMILY_UPDATED', {
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      changedFields: updates,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating family update:', e?.message));
+
     sendSuccess(res, { familyId: family.familyId, family });
   } catch (err) {
     next(err);
@@ -174,6 +182,13 @@ const addFamilyMember = async (req, res, next) => {
       changedFields: { familyId: family.familyId },
     });
 
+    // Re-evaluate family scheme eligibility in background (birth / new member)
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'MEMBER_ADDED', {
+      memberId: newMember._id,
+      actorId: req.user.id,
+      actorRole: req.user.role,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating member add:', e?.message));
+
     sendSuccess(res, { member: newMember }, 201);
   } catch (err) {
     if (err.code === 11000) {
@@ -228,6 +243,14 @@ const updateMemberStatus = async (req, res, next) => {
       entityId: member.memberId,
       changedFields: { before: { lifecycleStatus: previousStatus }, after: { lifecycleStatus } },
     });
+
+    // Re-evaluate family scheme eligibility in background (bereavement / status update)
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'MEMBER_STATUS_CHANGED', {
+      memberId: member._id,
+      lifecycleStatus,
+      actorId: req.user.id,
+      actorRole: req.user.role,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating member status change:', e?.message));
 
     sendSuccess(res, { memberId: member.memberId, lifecycleStatus });
   } catch (err) {
@@ -344,6 +367,14 @@ const updateMemberProfile = async (req, res, next) => {
       entityId: member.memberId,
       changedFields: { before: previousValues, after: req.body },
     });
+
+    // Re-evaluate family scheme eligibility in background (marriage / education / disability updates)
+    lifecycleTriggerService.handleFamilyMutation(family._id, 'MEMBER_UPDATED', {
+      memberId: member._id,
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      changedFields: req.body,
+    }).catch((e) => console.error('[Lifecycle] Error re-evaluating member profile update:', e?.message));
 
     sendSuccess(res, { member });
   } catch (err) {

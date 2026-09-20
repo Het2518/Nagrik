@@ -3,6 +3,8 @@
 const Scheme = require('../models/Scheme');
 const { logAction } = require('../services/auditLogService');
 const { sendSuccess, createApiError } = require('../utils/apiResponse');
+const saturationAnalyticsService = require('../services/saturationAnalyticsService');
+const cronService = require('../services/cronService');
 
 // Fields a citizen is allowed to see — internal officer checklist config is excluded
 const CITIZEN_PROJECTION = 'schemeCode schemeName department benefitType maxBenefitAmount benefitFrequency applicationDeadline eligibilityRules requiredDocuments applicationFormFields isActive';
@@ -184,4 +186,69 @@ const deactivateScheme = async (req, res, next) => {
   }
 };
 
-module.exports = { listSchemes, getSchemeByCode, createScheme, updateScheme, deactivateScheme };
+// ─── GET /api/v1/schemes/:schemeCode/beneficiaries ───────────────────────────
+// Saturation Analytics & Eligible Beneficiaries list for officers/admins
+const getSchemeBeneficiaries = async (req, res, next) => {
+  try {
+    const { page, limit, district, taluka, status, search } = req.query;
+    const userDistrict = req.user.jurisdiction?.district || district;
+    const userTaluka = req.user.jurisdiction?.taluka || taluka;
+
+    const data = await saturationAnalyticsService.getSchemeBeneficiaries(req.params.schemeCode, {
+      page,
+      limit,
+      district: userDistrict,
+      taluka: userTaluka,
+      status,
+      search,
+    });
+
+    sendSuccess(res, data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── POST /api/v1/schemes/:schemeCode/nudge ──────────────────────────────────
+// Dispatch proactive welfare notification to eligible unreached citizen
+const nudgeBeneficiary = async (req, res, next) => {
+  try {
+    const { familyId, memberId, customMessage } = req.body;
+    if (!familyId) {
+      return next(createApiError(400, 'familyId is required to send a nudge'));
+    }
+
+    const result = await saturationAnalyticsService.nudgeBeneficiary(req.params.schemeCode, {
+      familyId,
+      memberId,
+      customMessage,
+      officer: req.user,
+    });
+
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── POST /api/v1/schemes/:schemeCode/evaluate-cron ──────────────────────────
+// Trigger on-demand milestone and saturation cron recalculation
+const triggerSchemeCron = async (req, res, next) => {
+  try {
+    const result = await cronService.evaluateSchemeCron(req.params.schemeCode, req.user);
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  listSchemes,
+  getSchemeByCode,
+  createScheme,
+  updateScheme,
+  deactivateScheme,
+  getSchemeBeneficiaries,
+  nudgeBeneficiary,
+  triggerSchemeCron,
+};
