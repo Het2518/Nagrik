@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-let rawBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+let rawBaseUrl = import.meta.env.VITE_API_URL || 'https://nagrik-backend-iz5j.onrender.com/api/v1';
 rawBaseUrl = rawBaseUrl.trim().replace(/\/+$/, '');
 if (!rawBaseUrl.endsWith('/api/v1')) {
   rawBaseUrl = `${rawBaseUrl}/api/v1`;
