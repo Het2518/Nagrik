@@ -1,10 +1,15 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+let rawBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+rawBaseUrl = rawBaseUrl.trim().replace(/\/+$/, '');
+if (!rawBaseUrl.endsWith('/api/v1')) {
+  rawBaseUrl = `${rawBaseUrl}/api/v1`;
+}
+const BASE_URL = rawBaseUrl;
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
 

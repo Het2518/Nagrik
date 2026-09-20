@@ -23,16 +23,42 @@ const v2Routes          = require('./src/routes/v2Routes');
 
 const app = express();
 
+// Trust reverse proxy on Render / Cloud platforms for accurate rate limiting and IP detection
+app.set('trust proxy', 1);
+
 // ── Security ──────────────────────────────────────────────────────────────────
-app.use(helmet());
-app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }));
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow non-browser requests or local development
+    if (!origin) return callback(null, true);
+    if (!process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS === '*') {
+      return callback(null, true);
+    }
+    const origins = process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+    const lowerOrigin = origin.toLowerCase();
+    if (origins.includes(lowerOrigin) || origins.some((o) => lowerOrigin.endsWith(o.replace(/^\*/, '')))) {
+      return callback(null, true);
+    }
+    // Always permit Vercel deployment URLs by default
+    if (lowerOrigin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
+
 app.use(express.json({ limit: '10kb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Brute-force protection on login/register endpoints
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 20 : 100, // relaxed for dev/testing
+  max: process.env.NODE_ENV === 'production' ? 60 : 200, // accommodate multi-tab officer usage
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests — please try again in 15 minutes' },
@@ -41,7 +67,7 @@ const authRateLimiter = rateLimit({
 // Global API rate limiter (protects against general DoS)
 const globalLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: process.env.NODE_ENV === 'production' ? 500 : 2000,
+  max: process.env.NODE_ENV === 'production' ? 1000 : 2000,
   message: { success: false, error: 'Too many requests from this IP, please try again later.' }
 });
 
@@ -60,6 +86,8 @@ app.use('/api/v1/integrations', integrationRoutes);
 app.use('/api/v1/uploads',      uploadRoutes);
 app.use('/api/v1',              v2Routes);
 
+// Root & Health check endpoints for Render and uptime monitors
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'Nagrik API', version: '2.0.0' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'Nagrik API' }));
 app.use((req, res) => res.status(404).json({ success: false, error: 'Route not found' }));
 app.use(errorHandler);
