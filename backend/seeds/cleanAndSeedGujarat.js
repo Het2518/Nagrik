@@ -166,10 +166,10 @@ async function cleanAndSeedGujarat() {
   // Lookup schemes needed for demo applications and active benefits
   const [pmayScheme, aayScheme, phhScheme, maaScheme, preMatricScheme, ignoapsScheme, gangaSwarupaScheme] = await Promise.all([
     Scheme.findOne({ schemeCode: 'PMAY-G' }),
-    Scheme.findOne({ schemeCode: 'AAY-RATION' }),
+    Scheme.findOne({ schemeCode: 'NFSA-AAY' }),
     Scheme.findOne({ schemeCode: 'NFSA-PHH' }),
-    Scheme.findOne({ schemeCode: 'MAA-VAT' }),
-    Scheme.findOne({ schemeCode: 'PRE-MAT-SC' }),
+    Scheme.findOne({ schemeCode: 'PMJAY' }),
+    Scheme.findOne({ schemeCode: 'PMSSS' }),
     Scheme.findOne({ schemeCode: 'IGNOAPS' }),
     Scheme.findOne({ schemeCode: 'GANGA-SWARUPA' }),
   ]);

@@ -261,7 +261,7 @@ class BenefitGapDetector {
     if (filters.taluka && filters.taluka !== 'All') familyQuery['address.taluka'] = filters.taluka;
 
     const families = await Family.find(familyQuery)
-      .populate('headOfFamily')
+      .populate('headOfFamilyMemberId')
       .limit(60)
       .lean();
 
@@ -301,7 +301,7 @@ class BenefitGapDetector {
       evaluated.push({
         familyId: fam._id,
         nagrikId: fam.familyId,
-        headName: fam.headOfFamily?.name || 'Head of Household',
+        headName: fam.headOfFamilyMemberId?.name || 'Head of Household',
         district: fam.address?.district || 'Unknown',
         taluka: fam.address?.taluka || 'Unknown',
         village: fam.address?.village || '',

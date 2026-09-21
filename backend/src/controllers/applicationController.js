@@ -61,7 +61,11 @@ const LEVEL_LABEL = {
 // Returns the verification checklist the current officer must fill before deciding.
 const getVerificationChecklist = async (req, res, next) => {
   try {
-    const application = await Application.findById(req.params.id)
+    const isMongoId = mongoose.isValidObjectId(req.params.id);
+    const query = isMongoId
+      ? { $or: [{ _id: req.params.id }, { applicationId: req.params.id }] }
+      : { applicationId: req.params.id };
+    const application = await Application.findOne(query)
       .populate('schemeId');
     if (!application) return next(createApiError(404, 'Application not found'));
 

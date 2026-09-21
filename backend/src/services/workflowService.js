@@ -192,7 +192,7 @@ const workflowService = {
     await logAction({
       action: 'CLARIFICATION_REQUESTED',
       actorId: officerId,
-      actorRole,
+      actorRole: officerRole || 'Officer',
       entityType: 'Application',
       entityId: app.applicationId,
       details: { documentKey, remarks, deadline },
