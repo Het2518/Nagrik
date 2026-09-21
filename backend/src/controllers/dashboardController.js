@@ -3,6 +3,8 @@
 const Application = require('../models/Application');
 const Family = require('../models/Family');
 const Member = require('../models/Member');
+const Scheme = require('../models/Scheme');
+const benefitGapDetector = require('../services/benefitGapDetector');
 const { sendSuccess } = require('../utils/apiResponse');
 
 // GET /api/v1/dashboard/stats
@@ -24,6 +26,16 @@ const getDashboardStats = async (req, res, next) => {
       familyIdFilter = { familyId: { $in: scopedFamilies.map((f) => f._id) } };
     }
 
+    const inReviewStatuses = [
+      'Pending',
+      'Level1Review',
+      'Level1Approved',
+      'Level2Review',
+      'Level2Approved',
+      'Level3Review',
+      'ResubmissionRequired',
+    ];
+
     const [
       statusBreakdown,
       riskBreakdown,
@@ -36,6 +48,12 @@ const getDashboardStats = async (req, res, next) => {
       level1Queue,
       level2Queue,
       level3Queue,
+      // SLA & Escalation Governance metrics
+      breachedCount,
+      approachingBreachCount,
+      escalatedCount,
+      schemesWithBudget,
+      saturationData,
     ] = await Promise.all([
       Application.aggregate([
         { $match: familyIdFilter },
@@ -60,12 +78,61 @@ const getDashboardStats = async (req, res, next) => {
       Application.countDocuments({ ...familyIdFilter, status: { $in: ['Pending', 'Level1Review'] } }),
       Application.countDocuments({ ...familyIdFilter, status: { $in: ['Level1Approved', 'Level2Review'] } }),
       Application.countDocuments({ ...familyIdFilter, status: { $in: ['Level2Approved', 'Level3Review'] } }),
+      Application.countDocuments({
+        ...familyIdFilter,
+        status: { $in: inReviewStatuses },
+        'sla.isBreached': true,
+      }),
+      Application.countDocuments({
+        ...familyIdFilter,
+        status: { $in: inReviewStatuses },
+        'sla.isBreached': { $ne: true },
+        'sla.targetCompletionDate': {
+          $gte: new Date(),
+          $lte: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        },
+      }),
+      Application.countDocuments({
+        ...familyIdFilter,
+        escalated: true,
+        status: { $nin: ['FinalApproved', 'Rejected'] },
+      }),
+      Scheme.find({ isActive: true })
+        .select('schemeCode schemeName department budgetInfo maxBenefitAmount')
+        .lean(),
+      benefitGapDetector.getGeographicSaturation(
+        req.user.jurisdiction?.district,
+        req.user.jurisdiction?.taluka
+      ).catch(() => ({ totalFamilies: 0, overallAverageSaturation: 0, schemes: [] })),
     ]);
 
     const highRiskCount    = riskBreakdown.find((r) => r._id === 'High')?.count || 0;
     const pendingCount     = statusBreakdown.find((r) => r._id === 'Pending')?.count || 0;
     const finalApprovedCount = statusBreakdown.find((r) => r._id === 'FinalApproved')?.count || 0;
     const rejectedCount    = statusBreakdown.find((r) => r._id === 'Rejected')?.count || 0;
+
+    const totalActiveInReview = level1Queue + level2Queue + level3Queue;
+    const complianceRate = totalActiveInReview > 0
+      ? Math.max(0, Math.round(((totalActiveInReview - breachedCount) / totalActiveInReview) * 100))
+      : 100;
+
+    // Budget utilization calculation
+    const budgetOverview = schemesWithBudget.map((s) => {
+      const totalBudget = s.budgetInfo?.totalBudget || 50000000; // default 5 Cr
+      const disbursedAmount = s.budgetInfo?.disbursedAmount || (finalApprovedCount * (s.maxBenefitAmount || 5000));
+      const remainingBudget = Math.max(0, totalBudget - disbursedAmount);
+      const utilizationPct = totalBudget > 0 ? Math.min(100, Math.round((disbursedAmount / totalBudget) * 100)) : 0;
+      return {
+        schemeCode: s.schemeCode,
+        schemeName: s.schemeName,
+        department: s.department,
+        totalBudget,
+        disbursedAmount,
+        remainingBudget,
+        utilizationPct,
+        fiscalYear: s.budgetInfo?.fiscalYear || '2026-27',
+      };
+    });
 
     sendSuccess(res, {
       summary: {
@@ -79,10 +146,20 @@ const getDashboardStats = async (req, res, next) => {
         overdueVerificationCount,
         // Officer queue depths by pipeline level
         pipelineQueue: { level1: level1Queue, level2: level2Queue, level3: level3Queue },
+        // SLA Governance
+        slaMetrics: {
+          totalActiveInReview,
+          breachedCount,
+          approachingBreachCount,
+          escalatedCount,
+          complianceRate,
+        },
       },
       statusBreakdown,
       riskBreakdown,
       schemeEnrollment,
+      budgetOverview,
+      geographicSaturation: saturationData,
     });
   } catch (err) {
     next(err);

@@ -20,6 +20,7 @@ const auditLogRoutes = require('./src/routes/auditLogRoutes');
 const integrationRoutes = require('./src/routes/integrationRoutes');
 const uploadRoutes      = require('./src/routes/uploadRoutes');
 const v2Routes          = require('./src/routes/v2Routes');
+const dataQualityRoutes = require('./src/routes/dataQualityRoutes');
 const cronService       = require('./src/services/cronService');
 
 const app = express();
@@ -85,6 +86,7 @@ app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/auditlogs',    auditLogRoutes);
 app.use('/api/v1/integrations', integrationRoutes);
 app.use('/api/v1/uploads',      uploadRoutes);
+app.use('/api/v1/data-quality',  dataQualityRoutes);
 app.use('/api/v1',              v2Routes);
 
 // Root & Health check endpoints for Render and uptime monitors

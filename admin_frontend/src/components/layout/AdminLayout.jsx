@@ -1,31 +1,39 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, BookOpen, ScrollText, Settings, LogOut, ChevronRight, Shield } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, BookOpen, ScrollText, Settings, LogOut, ChevronRight, Shield, Layers, ShieldCheck } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
 import styles from './AdminLayout.module.css';
 
 const ROLE_NAV = {
   Talati: [
-    { path: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
-    { path: '/applications', label: 'Application Queue', icon: FileText },
-    { path: '/families',     label: 'Families',       icon: Users },
+    { path: '/dashboard',       label: 'Dashboard',         icon: LayoutDashboard },
+    { path: '/applications',    label: 'Application Queue', icon: FileText },
+    { path: '/families',        label: 'Families',          icon: Users },
+    { path: '/social-registry', label: 'Social Registry',   icon: Layers },
+    { path: '/data-quality',    label: 'Data Quality',      icon: ShieldCheck },
   ],
   Mamlatdar: [
-    { path: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
-    { path: '/applications', label: 'Application Queue', icon: FileText },
-    { path: '/families',     label: 'Families',       icon: Users },
+    { path: '/dashboard',       label: 'Dashboard',         icon: LayoutDashboard },
+    { path: '/applications',    label: 'Application Queue', icon: FileText },
+    { path: '/families',        label: 'Families',          icon: Users },
+    { path: '/social-registry', label: 'Social Registry',   icon: Layers },
+    { path: '/data-quality',    label: 'Data Quality',      icon: ShieldCheck },
   ],
   DistrictOfficer: [
-    { path: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
-    { path: '/applications', label: 'All Applications', icon: FileText },
-    { path: '/families',     label: 'Families',       icon: Users },
+    { path: '/dashboard',       label: 'Dashboard',         icon: LayoutDashboard },
+    { path: '/applications',    label: 'All Applications',  icon: FileText },
+    { path: '/families',        label: 'Families',          icon: Users },
+    { path: '/social-registry', label: 'Social Registry',   icon: Layers },
+    { path: '/data-quality',    label: 'Data Quality',      icon: ShieldCheck },
   ],
   Admin: [
-    { path: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
-    { path: '/applications', label: 'All Applications', icon: FileText },
-    { path: '/families',     label: 'Families',       icon: Users },
-    { path: '/schemes',      label: 'Schemes',        icon: BookOpen },
-    { path: '/auditlogs',    label: 'Audit Logs',     icon: ScrollText },
-    { path: '/officers',     label: 'Officers',       icon: Shield },
+    { path: '/dashboard',       label: 'Dashboard',         icon: LayoutDashboard },
+    { path: '/applications',    label: 'All Applications',  icon: FileText },
+    { path: '/families',        label: 'Families',          icon: Users },
+    { path: '/social-registry', label: 'Social Registry',   icon: Layers },
+    { path: '/data-quality',    label: 'Data Quality',      icon: ShieldCheck },
+    { path: '/schemes',         label: 'Schemes',           icon: BookOpen },
+    { path: '/auditlogs',       label: 'Audit Logs',        icon: ScrollText },
+    { path: '/officers',        label: 'Officers',          icon: Shield },
   ],
 };
 

@@ -17,6 +17,7 @@ const ApplicationDetailPage = lazy(() => import('../domains/applications/Applica
 const FamilyPage       = lazy(() => import('../domains/family/FamilyPage'));
 const OnboardingPage   = lazy(() => import('../domains/family/OnboardingPage'));
 const ProfilePage      = lazy(() => import('../domains/auth/ProfilePage'));
+const NotificationsPage = lazy(() => import('../domains/notifications/NotificationsPage'));
 
 function AuthenticatedApp() {
   return (
@@ -33,6 +34,7 @@ function AuthenticatedApp() {
           <Route path="/family/add-member"           element={<FamilyPage openAddModal={true} />} />
           <Route path="/onboarding"                  element={<OnboardingPage />} />
           <Route path="/profile"                     element={<ProfilePage />} />
+          <Route path="/notifications"               element={<NotificationsPage />} />
           <Route path="*"                            element={<Navigate to="/home" replace />} />
         </Routes>
       </Suspense>

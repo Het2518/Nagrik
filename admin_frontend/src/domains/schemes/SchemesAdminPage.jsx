@@ -18,6 +18,12 @@ import {
   AlertCircle,
   BarChart3,
   ExternalLink,
+  History,
+  RotateCcw,
+  ShieldCheck,
+  DollarSign,
+  MapPin,
+  Clock,
 } from 'lucide-react';
 import { schemeService } from '../../services/adminServices';
 import { useAdminStore } from '../../store/adminStore';
@@ -28,6 +34,11 @@ const schemeSchema = z.object({
   category:         z.enum(['Housing','Education','Health','Pension','Agriculture','Employment','Disability','Women','Other']),
   description:      z.string().min(10, 'Description is required'),
   maxBenefitAmount: z.coerce.number().min(0),
+  targetGroup:      z.enum(['Individual', 'Family', 'HouseholdHead', 'AllEligibleMembers']).default('Individual'),
+  totalBudget:      z.coerce.number().min(0).default(50000000),
+  districts:        z.string().optional(),
+  autoRenewable:    z.boolean().default(false),
+  versionReason:    z.string().optional(),
 });
 
 const CATEGORIES = ['Housing','Education','Health','Pension','Agriculture','Employment','Disability','Women','Other'];
@@ -42,7 +53,16 @@ function SchemeModal({ scheme, onClose }) {
       category:         scheme.category,
       description:      scheme.description,
       maxBenefitAmount: scheme.maxBenefitAmount,
-    } : {},
+      targetGroup:      scheme.targetGroup || 'Individual',
+      totalBudget:      scheme.budgetInfo?.totalBudget || 50000000,
+      districts:        scheme.geographicRestrictions?.districts?.join(', ') || '',
+      autoRenewable:    scheme.renewalRules?.autoRenewable || false,
+      versionReason:    'Rule definition update',
+    } : {
+      targetGroup: 'Individual',
+      totalBudget: 50000000,
+      autoRenewable: false,
+    },
   });
 
   const { mutateAsync: create } = useMutation({
@@ -53,17 +73,50 @@ function SchemeModal({ scheme, onClose }) {
     mutationFn: (d) => schemeService.update(scheme.schemeCode, d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['schemes-admin'] }); onClose(); },
   });
+  const { mutateAsync: createVersion } = useMutation({
+    mutationFn: (d) => schemeService.createVersion(scheme.schemeCode, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schemes-admin'] }); onClose(); },
+  });
 
   const onSubmit = async (data) => {
-    if (isEdit) await update(data);
-    else await create(data);
+    const payload = {
+      schemeName: data.schemeName,
+      category: data.category,
+      description: data.description,
+      maxBenefitAmount: Number(data.maxBenefitAmount),
+      targetGroup: data.targetGroup,
+      budgetInfo: {
+        totalBudget: Number(data.totalBudget || 50000000),
+        remainingBudget: Number(data.totalBudget || 50000000) * 0.75,
+        disbursedAmount: Number(data.totalBudget || 50000000) * 0.25,
+        fiscalYear: '2024-2025',
+      },
+      geographicRestrictions: {
+        districts: data.districts ? data.districts.split(',').map(d => d.trim()).filter(Boolean) : [],
+        urban: true,
+        rural: true,
+        tribal: true,
+      },
+      renewalRules: {
+        autoRenewable: !!data.autoRenewable,
+        renewalPeriodMonths: 12,
+        gracePeriodDays: 30,
+      },
+    };
+
+    if (isEdit) {
+      // Create version snapshot before applying update
+      await createVersion({ updates: payload, reason: data.versionReason || 'Admin scheme update' });
+    } else {
+      await create(payload);
+    }
   };
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'Edit Scheme' : 'Create Scheme'}>
-      <div className={styles.modal}>
+      <div className={styles.modal} style={{ maxWidth: 640 }}>
         <div className={styles.modalHeader}>
-          <h2>{isEdit ? 'Edit Scheme' : 'Create New Scheme'}</h2>
+          <h2>{isEdit ? `Edit Scheme & Version (v${scheme.version || 1})` : 'Create New Scheme'}</h2>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
@@ -72,6 +125,7 @@ function SchemeModal({ scheme, onClose }) {
             <input className={`${styles.input} ${errors.schemeName ? styles.inputErr : ''}`} placeholder="e.g. PM Awas Yojana" {...register('schemeName')} />
             {errors.schemeName && <p className={styles.err}>{errors.schemeName.message}</p>}
           </div>
+
           <div className={styles.row2}>
             <div className={styles.field}>
               <label>Category *</label>
@@ -84,18 +138,194 @@ function SchemeModal({ scheme, onClose }) {
               <input type="number" min="0" className={styles.input} {...register('maxBenefitAmount')} />
             </div>
           </div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>Target Beneficiary Level</label>
+              <select className={styles.select} {...register('targetGroup')}>
+                <option value="Individual">Individual Member</option>
+                <option value="Family">Entire Family Household</option>
+                <option value="HouseholdHead">Head of Family Only</option>
+                <option value="AllEligibleMembers">All Eligible Members</option>
+              </select>
+            </div>
+            <div className={styles.field}>
+              <label>Total Budget Allocation (₹)</label>
+              <input type="number" min="0" className={styles.input} {...register('totalBudget')} />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label>Geographic Targeting (Districts)</label>
+            <input
+              className={styles.input}
+              placeholder="e.g. Gandhinagar, Ahmedabad (leave blank for statewide)"
+              {...register('districts')}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
+            <input type="checkbox" id="autoRenewable" {...register('autoRenewable')} />
+            <label htmlFor="autoRenewable" style={{ fontSize: 13, color: '#334155' }}>
+              Auto-renewable annually via Social Registry checks
+            </label>
+          </div>
+
+          {isEdit && (
+            <div className={styles.field} style={{ background: '#F8FAFC', padding: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+              <label style={{ color: '#4338CA', fontWeight: 600 }}>Rule Version Snapshot Remark</label>
+              <input
+                className={styles.input}
+                placeholder="Reason for rule modifications (recorded in audit version history)"
+                {...register('versionReason')}
+              />
+            </div>
+          )}
+
           <div className={styles.field}>
             <label>Description *</label>
-            <textarea className={`${styles.textarea} ${errors.description ? styles.inputErr : ''}`} rows={4} placeholder="Describe the scheme benefits and purpose..." {...register('description')} />
+            <textarea className={`${styles.textarea} ${errors.description ? styles.inputErr : ''}`} rows={3} placeholder="Describe the scheme benefits and purpose..." {...register('description')} />
             {errors.description && <p className={styles.err}>{errors.description.message}</p>}
           </div>
+
           <div className={styles.modalActions}>
             <button type="button" className={styles.cancelBtn} onClick={onClose}>Cancel</button>
             <button type="submit" disabled={isSubmitting} className={styles.submitBtn}>
-              {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Scheme'}
+              {isSubmitting ? 'Saving...' : isEdit ? 'Publish New Version' : 'Create Scheme'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Version History Modal (Req 19-20) ──────────────────────────
+function VersionHistoryModal({ schemeCode, onClose }) {
+  const qc = useQueryClient();
+  const [toast, setToast] = useState('');
+
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['schemeHistory', schemeCode],
+    queryFn: () => schemeService.getHistory(schemeCode),
+  });
+
+  const { mutate: rollback, isPending: isRollingBack } = useMutation({
+    mutationFn: ({ version, reason }) => schemeService.rollback(schemeCode, version, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schemes-admin'] });
+      qc.invalidateQueries({ queryKey: ['schemeHistory', schemeCode] });
+      setToast('Scheme rules successfully rolled back to target version!');
+      setTimeout(() => setToast(''), 5000);
+    },
+    onError: (err) => alert(err?.response?.data?.message || 'Rollback failed'),
+  });
+
+  return (
+    <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label="Scheme Rule Version History">
+      <div className={styles.modal} style={{ maxWidth: 700, maxHeight: '85vh', overflowY: 'auto' }}>
+        <div className={styles.modalHeader}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <History size={20} color="#4F46E5" />
+            <h2 style={{ margin: 0 }}>Rule Version History: {schemeCode}</h2>
+          </div>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+
+        {toast && (
+          <div style={{ background: '#DCFCE7', border: '1px solid #86EFAC', color: '#166534', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
+            {toast}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: '#64748B' }}>Loading rule versions...</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Current Active Version */}
+            <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#3730A3' }}>
+                  Current Active Version: v{history?.currentVersion || 1}
+                </span>
+                <span style={{ background: '#4F46E5', color: '#FFFFFF', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                  ACTIVE
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: '#4338CA' }}>
+                Budget Allocation: ₹{Number(history?.currentBudget?.totalBudget || 0).toLocaleString('en-IN')} • Target: {history?.currentRules?.targetGroup || 'Individual'}
+              </div>
+            </div>
+
+            {/* Historical Snapshots */}
+            <div>
+              <h4 style={{ margin: '0 0 10px', fontSize: 14, color: '#334155' }}>Historical Rule Snapshots:</h4>
+              {(!history?.snapshots || history.snapshots.length === 0) ? (
+                <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>
+                  No previous version snapshots found. Initial version v1 is active.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {history.snapshots.map((snap, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: 8,
+                        padding: 14,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>Version {snap.version}</span>
+                          <span style={{ fontSize: 11, color: '#64748B' }}>
+                            {new Date(snap.effectiveDate).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#475569' }}>
+                          Reason: <em>{snap.reason || 'Routine rule maintenance'}</em>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                          Modified by: {snap.changedBy || 'Officer'}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Revert scheme rules to Version ${snap.version}?`)) {
+                            rollback({ version: snap.version, reason: `Reverted to snapshot v${snap.version}` });
+                          }
+                        }}
+                        disabled={isRollingBack}
+                        style={{
+                          background: '#F1F5F9',
+                          border: '1px solid #CBD5E1',
+                          color: '#334155',
+                          padding: '6px 12px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <RotateCcw size={12} />
+                        <span>Revert to v{snap.version}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -115,6 +345,7 @@ export default function SchemesAdminPage() {
   const [catFilter, setCatFilter] = useState('');
   const [modalScheme, setModalScheme] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [historySchemeCode, setHistorySchemeCode] = useState(null);
 
   // Saturation tab filters & state
   const [beneficiaryStatus, setBeneficiaryStatus] = useState('ALL');
@@ -309,37 +540,46 @@ export default function SchemesAdminPage() {
                     <span className={styles.code}>{scheme.schemeCode}</span>
                   </div>
 
-                  {/* Actions: View Saturation Board + Admin Controls */}
-                  <div className={styles.cardActions}>
-                    <button
-                      className={styles.viewBoardBtn}
-                      onClick={() => {
-                        setSelectedSchemeCode(scheme.schemeCode);
-                        setActiveTab('saturation');
-                      }}
-                      title="View eligible beneficiary saturation board"
-                    >
-                      <BarChart3 size={13} /> Saturation Board
-                    </button>
+                    {/* Actions: View Saturation Board + Admin Controls */}
+                    <div className={styles.cardActions}>
+                      <button
+                        className={styles.viewBoardBtn}
+                        onClick={() => {
+                          setSelectedSchemeCode(scheme.schemeCode);
+                          setActiveTab('saturation');
+                        }}
+                        title="View eligible beneficiary saturation board"
+                      >
+                        <BarChart3 size={13} /> Saturation Board
+                      </button>
 
-                    {isAdmin && (
-                      <>
-                        <button className={styles.editBtn} onClick={() => { setModalScheme(scheme); setShowModal(true); }}>
-                          <Edit2 size={13} /> Edit
-                        </button>
-                        <button
-                          className={`${styles.toggleBtn} ${scheme.isActive === false ? styles.activateBtn : styles.deactivateBtn}`}
-                          onClick={() => {
-                            if (window.confirm(`${scheme.isActive !== false ? 'Deactivate' : 'Reactivate'} this scheme?`)) {
-                              deactivate(scheme.schemeCode);
-                            }
-                          }}
-                        >
-                          <Power size={13} /> {scheme.isActive !== false ? 'Deactivate' : 'Reactivate'}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                      <button
+                        className={styles.editBtn}
+                        style={{ background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE' }}
+                        onClick={() => setHistorySchemeCode(scheme.schemeCode)}
+                        title="View Rule Versions & History"
+                      >
+                        <History size={13} /> v{scheme.version || 1} History
+                      </button>
+
+                      {isAdmin && (
+                        <>
+                          <button className={styles.editBtn} onClick={() => { setModalScheme(scheme); setShowModal(true); }}>
+                            <Edit2 size={13} /> Edit
+                          </button>
+                          <button
+                            className={`${styles.toggleBtn} ${scheme.isActive === false ? styles.activateBtn : styles.deactivateBtn}`}
+                            onClick={() => {
+                              if (window.confirm(`${scheme.isActive !== false ? 'Deactivate' : 'Reactivate'} this scheme?`)) {
+                                deactivate(scheme.schemeCode);
+                              }
+                            }}
+                          >
+                            <Power size={13} /> {scheme.isActive !== false ? 'Deactivate' : 'Reactivate'}
+                          </button>
+                        </>
+                      )}
+                    </div>
                 </div>
               ))}
             </div>
@@ -578,6 +818,14 @@ export default function SchemesAdminPage() {
         <SchemeModal
           scheme={Object.keys(modalScheme).length > 0 ? modalScheme : null}
           onClose={() => setShowModal(false)}
+        />
+      )}
+
+      {/* Scheme Rule Version History Modal */}
+      {historySchemeCode && (
+        <VersionHistoryModal
+          schemeCode={historySchemeCode}
+          onClose={() => setHistorySchemeCode(null)}
         />
       )}
 

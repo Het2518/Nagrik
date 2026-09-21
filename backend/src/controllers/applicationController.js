@@ -10,6 +10,8 @@ const { checkEligibilityWithFetch } = require('../services/eligibilityEngine');
 const { logAction } = require('../services/auditLogService');
 const { getChecklistForSchemeAndLevel, buildChecklist, validateSchemeFormData, validateRequiredDocuments, getUncheckedItems } = require('../services/verificationChecklistService');
 const Scheme = require('../models/Scheme');
+const slaService = require('../services/slaService');
+const workflowService = require('../services/workflowService');
 const { sendSuccess, createApiError } = require('../utils/apiResponse');
 
 // ─── Approval Pipeline Configuration ────────────────────────────────────────
@@ -328,11 +330,14 @@ const submitApplication = async (req, res, next) => {
 
     const riskFlag = await scoreRisk({ familyId: family._id, schemeId, certificateNumbers });
 
-    const application = await Application.create({
+    const priority = req.body.priority || (submittedDocuments.length > 0 && submittedDocuments.every(d => d.reusedFromLocker) ? 'FastTrack' : 'Normal');
+
+    const application = new Application({
       familyId: family._id,
       memberId,
       schemeId,
       riskFlag,
+      priority,
       currentPipelineLevel: 1,
       schemeSpecificData,
       submittedDocumentKeys,          // legacy flat keys (backward compat)
@@ -340,6 +345,12 @@ const submitApplication = async (req, res, next) => {
       documentReferences: savedDocRefs.map((d) => d._id),
       statusHistory: [{ status: 'Pending', remarks: 'Application submitted by citizen. Awaiting Level 1 (Talati) review.' }],
     });
+
+    slaService.calculateSLA(application, scheme);
+    await application.save();
+
+    // Check fast-track auto-approval criteria
+    await workflowService.evaluateAutoApproval(application._id);
 
     await DocumentReference.updateMany(
       { _id: { $in: savedDocRefs.map((d) => d._id) } },
@@ -352,10 +363,16 @@ const submitApplication = async (req, res, next) => {
       actorRole: 'Citizen',
       entityType: 'Application',
       entityId: application.applicationId,
-      changedFields: { riskFlag, schemeId, schemeSpecificData, submittedDocumentKeys },
+      changedFields: { riskFlag, schemeId, schemeSpecificData, submittedDocumentKeys, priority, autoApproved: application.autoApproved },
     });
 
-    sendSuccess(res, { applicationId: application.applicationId, riskFlag }, 201);
+    sendSuccess(res, {
+      applicationId: application.applicationId,
+      riskFlag,
+      priority,
+      status: application.status,
+      autoApproved: application.autoApproved,
+    }, 201);
   } catch (err) {
     if (err.code === 11000) return next(createApiError(409, 'This member has already applied for this scheme'));
     next(err);
@@ -365,7 +382,16 @@ const submitApplication = async (req, res, next) => {
 // ─── GET /api/v1/applications ────────────────────────────────────────────────
 const listApplications = async (req, res, next) => {
   try {
-    const { familyId: familyIdParam, status, riskFlag, page = 1, limit = 20 } = req.query;
+    const {
+      familyId: familyIdParam,
+      status,
+      riskFlag,
+      priority,
+      isBreached,
+      escalated,
+      page = 1,
+      limit = 20,
+    } = req.query;
     const filter = {};
 
     if (req.user.role === 'Citizen') {
@@ -404,19 +430,29 @@ const listApplications = async (req, res, next) => {
 
     if (status) filter.status = status;
     if (riskFlag) filter.riskFlag = riskFlag;
+    if (priority) filter.priority = priority;
+    if (isBreached === 'true') filter['sla.isBreached'] = true;
+    if (escalated === 'true') filter.escalated = true;
 
     const skip = (Number(page) - 1) * Number(limit);
-    const [applications, total] = await Promise.all([
+    const [applications, total, slaMetrics] = await Promise.all([
       Application.find(filter)
-        .populate('schemeId', 'schemeName schemeCode benefitType maxBenefitAmount')
+        .populate('schemeId', 'schemeName schemeCode benefitType maxBenefitAmount slaDays')
         .populate('memberId', 'name dateOfBirth gender')
-        .sort({ submittedAt: -1 })
+        .sort({ priority: -1, 'sla.targetCompletionDate': 1, submittedAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
       Application.countDocuments(filter),
+      req.user.role !== 'Citizen' ? slaService.getQueueSLAMetrics(filter) : null,
     ]);
 
-    sendSuccess(res, { applications, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+    sendSuccess(res, {
+      applications,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
+      slaMetrics,
+    });
   } catch (err) {
     next(err);
   }
@@ -566,6 +602,84 @@ const resubmitApplication = async (req, res, next) => {
   }
 };
 
+// ─── Phase 4 Workflow & SLA Endpoints ────────────────────────────────────────
+
+// POST /api/v1/applications/bulk-decide
+const bulkDecideApplications = async (req, res, next) => {
+  try {
+    const { applicationIds = [], action, remarks, rejectionCategory } = req.body;
+    if (!applicationIds.length) return next(createApiError(400, 'applicationIds array is required'));
+    if (!['Approved', 'Rejected', 'ResubmissionRequired'].includes(action)) {
+      return next(createApiError(400, 'Invalid action for bulk processing'));
+    }
+
+    const pipeline = PIPELINE[req.user.role];
+    const level = pipeline?.level || 1;
+
+    const result = await workflowService.bulkDecide({
+      applicationIds,
+      action,
+      remarks,
+      rejectionCategory,
+      officerId: req.user.id,
+      officerRole: req.user.role,
+      level,
+    });
+
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/applications/:id/clarify
+const requestClarificationEndpoint = async (req, res, next) => {
+  try {
+    const { remarks, documentKey, deadlineDays = 7 } = req.body;
+    if (!remarks) return next(createApiError(400, 'remarks are required for clarification request'));
+
+    const app = await workflowService.requestClarification({
+      applicationId: req.params.id,
+      remarks,
+      documentKey,
+      deadlineDays,
+      officerId: req.user.id,
+      officerRole: req.user.role,
+    });
+
+    sendSuccess(res, { application: app });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/applications/:id/respond-clarify
+const respondToClarificationEndpoint = async (req, res, next) => {
+  try {
+    const { citizenResponse, updatedDocuments } = req.body;
+    const app = await workflowService.submitClarification({
+      applicationId: req.params.id,
+      citizenResponse,
+      updatedDocuments,
+    });
+
+    sendSuccess(res, { application: app });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/applications/:id/escalate
+const escalateApplicationEndpoint = async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const app = await workflowService.escalateApplication(req.params.id, reason, req.user.role || 'Officer');
+    sendSuccess(res, { application: app });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   submitApplication,
   makeDecision,
@@ -574,4 +688,8 @@ module.exports = {
   getApplicationById,
   withdrawApplication,
   resubmitApplication,
+  bulkDecideApplications,
+  requestClarificationEndpoint,
+  respondToClarificationEndpoint,
+  escalateApplicationEndpoint,
 };

@@ -12,6 +12,8 @@ const FamilyCaseViewPage = lazy(() => import('../domains/families/FamilyCaseView
 const SchemesAdminPage   = lazy(() => import('../domains/schemes/SchemesAdminPage'));
 const AuditLogsPage      = lazy(() => import('../domains/auditlogs/AuditLogsPage'));
 const OfficersPage       = lazy(() => import('../domains/officers/OfficersPage'));
+const SocialRegistryPage = lazy(() => import('../domains/registry/SocialRegistryPage'));
+const DataQualityPage    = lazy(() => import('../domains/quality/DataQualityPage'));
 
 function Loader() {
   return (
@@ -46,6 +48,8 @@ function AdminApp() {
           <Route path="/families/:id"        element={<FamilyCaseViewPage />} />
           <Route path="/families/:id/case-view" element={<FamilyCaseViewPage />} />
           <Route path="/schemes"             element={<SchemesAdminPage />} />
+          <Route path="/social-registry"     element={<SocialRegistryPage />} />
+          <Route path="/data-quality"        element={<DataQualityPage />} />
           <Route path="/auditlogs"           element={<AuditLogsPage />} />
           <Route path="/officers"            element={<OfficersPage />} />
           <Route path="*"                    element={<Navigate to="/dashboard" replace />} />

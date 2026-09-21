@@ -78,6 +78,9 @@ export default function SchemesPage() {
 
         const record = schemeEligibilityMap[codeKey] || {
           isEligible: true,
+          confidenceScore: s.confidenceScore || 100,
+          geographicStatus: s.geographicStatus || null,
+          stackingInfo: s.stackingInfo || null,
           qualifyingMembers: [],
           satisfiedRules: s.satisfiedRules || s.why || [],
           failedRules: [],
@@ -85,6 +88,7 @@ export default function SchemesPage() {
         };
 
         record.isEligible = true;
+        record.confidenceScore = Math.max(record.confidenceScore || 0, s.confidenceScore || 100);
         if (!record.qualifyingMembers.some((m) => m.memberId === memberEl.memberId)) {
           record.qualifyingMembers.push({
             memberId: memberEl.memberId,
@@ -105,6 +109,9 @@ export default function SchemesPage() {
         if (!schemeEligibilityMap[codeKey]) {
           const record = {
             isEligible: false,
+            confidenceScore: s.confidenceScore || 0,
+            geographicStatus: s.geographicStatus || null,
+            stackingInfo: s.stackingInfo || null,
             qualifyingMembers: [],
             satisfiedRules: [],
             failedRules: [...(s.failedRules || s.reasons || [])],
@@ -113,6 +120,7 @@ export default function SchemesPage() {
           schemeEligibilityMap[codeKey] = record;
           if (idKey) schemeEligibilityMap[idKey] = record;
         } else if (!schemeEligibilityMap[codeKey].isEligible) {
+          schemeEligibilityMap[codeKey].confidenceScore = Math.max(schemeEligibilityMap[codeKey].confidenceScore || 0, s.confidenceScore || 0);
           // Accumulate reasons if not already marked eligible by another member
           for (const r of s.failedRules || s.reasons || []) {
             if (!schemeEligibilityMap[codeKey].failedRules.includes(r)) {
@@ -285,11 +293,28 @@ export default function SchemesPage() {
                   }`}
                 >
                   <div className={styles.schemeTop}>
-                    <span className={styles.schemeCat}>{scheme.category}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span className={styles.schemeCat}>{scheme.category}</span>
+                      {scheme.targetGroup && (
+                        <span style={{ fontSize: 10, background: '#F3E8FF', color: '#7E22CE', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                          {scheme.targetGroup}
+                        </span>
+                      )}
+                      {scheme.renewalRules?.autoRenewable && (
+                        <span style={{ fontSize: 10, background: '#DCFCE7', color: '#15803D', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                          Auto-Renew
+                        </span>
+                      )}
+                    </div>
+
                     {hasChecked && (
                       isEligible ? (
                         <span className={styles.eligibleBadge}>
-                          <CheckCircle2 size={12} /> Eligible
+                          <CheckCircle2 size={12} /> {elig?.confidenceScore ? `${elig.confidenceScore}% ` : ''}Eligible
+                        </span>
+                      ) : elig?.confidenceScore >= 70 ? (
+                        <span style={{ background: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Sparkles size={11} /> {elig.confidenceScore}% Match
                         </span>
                       ) : (
                         <span className={styles.ineligibleBadge}>

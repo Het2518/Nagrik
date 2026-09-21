@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, Clock, XCircle, AlertCircle, MinusCircle, ExternalLink, Upload, Send } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, CheckCircle, Clock, XCircle, AlertCircle, MinusCircle, ExternalLink, Upload, Send, Zap, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { applicationService, uploadService } from '../../services/applicationService';
 import { useAuthStore } from '../../store/authStore';
 import StatusChip from '../../components/ui/StatusChip';
@@ -53,11 +53,12 @@ export default function ApplicationDetailPage() {
   const { mutate: resubmit, isPending: isResubmitting } = useMutation({
     mutationFn: async () => {
       setResubmitErr('');
-      let submittedDocuments = [];
+      let updatedDocuments = [];
+      const docKey = data?.application?.documentAffected || data?.application?.clarificationHistory?.[data?.application?.clarificationHistory?.length - 1]?.documentKey || 'ClarificationDocument';
       if (resubmitFile) {
-        const uploaded = await uploadService.uploadDocument(resubmitFile, data?.application?.documentAffected || 'CorrectedDocument');
-        submittedDocuments.push({
-          docKey: data?.application?.documentAffected || 'CorrectedDocument',
+        const uploaded = await uploadService.uploadDocument(resubmitFile, docKey);
+        updatedDocuments.push({
+          docKey,
           url: uploaded.url,
           publicId: uploaded.publicId,
           originalName: resubmitFile.name,
@@ -65,17 +66,19 @@ export default function ApplicationDetailPage() {
           sizeBytes: uploaded.sizeBytes,
         });
       }
-      return applicationService.resubmit(id, {
-        remarks: resubmitRemarks,
-        submittedDocuments,
+      return applicationService.respondClarification(id, {
+        citizenResponse: resubmitRemarks,
+        updatedDocuments,
       });
     },
     onSuccess: (res) => {
-      setResubmitSuccess(res?.citizenMessage || 'Application resubmitted successfully!');
+      setResubmitSuccess('Clarification & documents submitted successfully! Application review resumed.');
+      setResubmitRemarks('');
+      setResubmitFile(null);
       queryClient.invalidateQueries({ queryKey: ['application', id] });
     },
     onError: (err) => {
-      setResubmitErr(err.response?.data?.error || 'Failed to resubmit application');
+      setResubmitErr(err.response?.data?.error || 'Failed to submit response');
     },
   });
 
@@ -92,6 +95,9 @@ export default function ApplicationDetailPage() {
 
   const canWithdraw = app.status === 'Pending';
   const schemeCode = app.schemeId?.schemeCode;
+  const targetDate = app.sla?.targetCompletionDate ? new Date(app.sla.targetCompletionDate) : null;
+  const isSlaBreached = app.sla?.isBreached || (targetDate && isPast(targetDate) && !['FinalApproved', 'Rejected'].includes(app.status));
+  const latestClarification = app.clarificationHistory?.[app.clarificationHistory.length - 1];
 
   return (
     <div className={`${styles.page} animate-fade-in`}>
@@ -101,26 +107,93 @@ export default function ApplicationDetailPage() {
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <div className={styles.hero}>
-        <div className={styles.heroMeta}>
+        <div className={styles.heroMeta} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <span className={styles.appId}>{app.applicationId}</span>
           <StatusChip status={app.status} size="lg" />
+
+          {/* Priority Pill */}
+          {app.priority === 'FastTrack' && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(245, 158, 11, 0.25)', color: '#FDE68A', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+              <Zap size={13} /> Fast-Track
+            </span>
+          )}
+          {app.priority === 'Urgent' && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(239, 68, 68, 0.25)', color: '#FCA5A5', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: '1px solid rgba(239, 68, 68, 0.4)' }}>
+              <AlertTriangle size={13} /> High Priority / Urgent
+            </span>
+          )}
+
+          {/* Auto-Approval Pill */}
+          {app.autoApproved && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(16, 185, 129, 0.25)', color: '#A7F3D0', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+              <ShieldCheck size={13} /> Instant Sanctioned
+            </span>
+          )}
+
+          {/* SLA Turnaround Pill */}
+          {targetDate && (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              background: isSlaBreached ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.15)',
+              color: isSlaBreached ? '#FCA5A5' : 'rgba(255,255,255,0.9)',
+              padding: '3px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              border: isSlaBreached ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255,255,255,0.2)'
+            }}>
+              <Clock size={13} />
+              {isSlaBreached
+                ? `⚠️ SLA Breached (Target was ${format(targetDate, 'dd MMM')})`
+                : `Target Decision: ${format(targetDate, 'dd MMM yyyy')} (${formatDistanceToNow(targetDate, { addSuffix: true })})`
+              }
+            </span>
+          )}
         </div>
         <h1 className={styles.schemeName}>{app.schemeId?.schemeName || 'Application'}</h1>
         <p className={styles.submittedOn}>
-          Submitted on{' '}
-          {format(new Date(app.submittedAt), 'd MMMM yyyy')}
+          Submitted on {format(new Date(app.submittedAt), 'd MMMM yyyy')}
         </p>
       </div>
+
+      {/* ── Escalation Alert Banner ───────────────────────── */}
+      {app.escalated && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          background: '#FEF2F2',
+          border: '1px solid #F87171',
+          borderLeft: '5px solid #EF4444',
+          borderRadius: 'var(--radius-lg)',
+          padding: '12px 16px',
+          color: '#991B1B'
+        }}>
+          <AlertTriangle size={20} color="#DC2626" />
+          <div>
+            <strong style={{ display: 'block', fontSize: 14 }}>Expedited Officer Escalation</strong>
+            <p style={{ fontSize: 13, margin: 0, color: '#7F1D1D' }}>
+              This application has been flagged for priority administrative handling: {app.escalationReason || 'Higher scrutiny / expedited resolution requested'}.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Action Required Banner ────────────────────────── */}
       {app.status === 'ResubmissionRequired' && (
         <div className={styles.resubBanner} role="alert">
-          <AlertCircle size={20} />
+          <AlertCircle size={22} />
           <div>
-            <strong>Documents Needed</strong>
+            <strong>Action Required: Reviewer Clarification Needed</strong>
             <p>
-              The reviewing officer has requested additional or corrected documents.
-              Please review the remarks below and update your application.
+              The verification officer has requested clarification or an updated document.
+              Your file is paused until you provide the requested information below.
+              {app.resubmissionDeadline && (
+                <span style={{ display: 'block', marginTop: 4, fontWeight: 600, color: '#B45309' }}>
+                  Resubmission Deadline: {format(new Date(app.resubmissionDeadline), 'd MMMM yyyy')} ({formatDistanceToNow(new Date(app.resubmissionDeadline), { addSuffix: true })})
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -187,25 +260,77 @@ export default function ApplicationDetailPage() {
 
         {/* ── Right Column ──────────────────────────────────── */}
         <div className={styles.rightCol}>
-          {/* Action Required: Resubmission Card */}
+          {/* SLA Turnaround & Governance Card */}
+          <Card>
+            <h2 className={styles.cardTitle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Clock size={18} color="var(--color-navy-700)" />
+              Service Level Guarantee (SLA)
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
+                <span style={{ color: '#6B7280' }}>Total SLA Window:</span>
+                <span style={{ fontWeight: 600, color: '#111827' }}>{app.sla?.slaDaysTotal || 15} Working Days</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
+                <span style={{ color: '#6B7280' }}>Target Date:</span>
+                <span style={{ fontWeight: 600, color: '#111827' }}>
+                  {targetDate ? format(targetDate, 'dd MMMM yyyy') : 'Calculated upon review'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
+                <span style={{ color: '#6B7280' }}>Current Stage:</span>
+                <span style={{ fontWeight: 600, color: '#111827' }}>
+                  {app.currentPipelineLevel === 1 ? 'Level 1 — Talati' :
+                   app.currentPipelineLevel === 2 ? 'Level 2 — Mamlatdar' : 'Level 3 — District Officer'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 2 }}>
+                <span style={{ color: '#6B7280' }}>Compliance Status:</span>
+                {isSlaBreached ? (
+                  <span style={{ fontWeight: 700, color: '#DC2626', background: '#FEE2E2', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>
+                    ⚠️ SLA Breached
+                  </span>
+                ) : (
+                  <span style={{ fontWeight: 600, color: '#16A34A', background: '#DCFCE7', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>
+                    ✓ On Schedule
+                  </span>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Action Required: Resubmission / Clarification Card */}
           {app.status === 'ResubmissionRequired' && (
             <Card style={{ borderColor: 'var(--color-saffron-500)', background: '#FFFDF7' }}>
               <h2 className={styles.cardTitle} style={{ color: 'var(--color-saffron-700)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Upload size={18} />
-                {t('v2.resubmission_title', 'Document Correction Requested')}
+                {t('v2.resubmission_title', 'Clarification / Correction Requested')}
               </h2>
               <p style={{ fontSize: 13, color: '#4B5563', marginBottom: 12 }}>
-                {t('v2.resubmission_desc', 'The reviewing officer requested a correction. You do not need to start over; your application continues once updated.')}
+                {t('v2.resubmission_desc', 'The reviewing officer requested a correction or clarification. Your application remains in your queue and review resumes immediately upon reply.')}
               </p>
 
-              {app.officerRemarks && (
-                <div style={{ background: '#FEF3C7', padding: 10, borderRadius: 8, marginBottom: 14, fontSize: 13, color: '#92400E' }}>
-                  <strong>Officer Remarks:</strong> {app.officerRemarks}
+              {(app.officerRemarks || latestClarification?.remarks) && (
+                <div style={{ background: '#FEF3C7', padding: 12, borderRadius: 8, marginBottom: 14, fontSize: 13, color: '#92400E', border: '1px solid #FDE68A' }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Officer Query ({latestClarification?.requestedBy || 'Reviewing Officer'}):</span>
+                    {app.documentAffected && (
+                      <span style={{ fontSize: 11, background: '#F59E0B', color: '#FFF', padding: '1px 6px', borderRadius: 4 }}>
+                        Doc: {app.documentAffected}
+                      </span>
+                    )}
+                  </div>
+                  <div>{app.officerRemarks || latestClarification?.remarks}</div>
+                  {app.resubmissionDeadline && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#B45309', fontWeight: 600 }}>
+                      ⏱️ Please respond before {format(new Date(app.resubmissionDeadline), 'dd MMM yyyy')}
+                    </div>
+                  )}
                 </div>
               )}
 
               {resubmitSuccess && (
-                <div style={{ background: '#DCFCE7', color: '#15803D', padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ background: '#DCFCE7', color: '#15803D', padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 13, fontWeight: 600 }}>
                   ✓ {resubmitSuccess}
                 </div>
               )}
@@ -217,7 +342,7 @@ export default function ApplicationDetailPage() {
 
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                  Select Updated Document
+                  Attach Corrected Document (Optional if only text clarification required)
                 </label>
                 <input
                   type="file"
@@ -228,12 +353,12 @@ export default function ApplicationDetailPage() {
 
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                  Citizen Note / Explanation (Optional)
+                  Citizen Response / Remarks <span style={{ color: '#DC2626' }}>*</span>
                 </label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   style={{ width: '100%', padding: 8, fontSize: 12, borderRadius: 6, border: '1px solid #D1D5DB' }}
-                  placeholder="e.g. Attached newly issued income certificate for current financial year."
+                  placeholder="Provide clarification, certificate update details, or explanation..."
                   value={resubmitRemarks}
                   onChange={(e) => setResubmitRemarks(e.target.value)}
                 />
@@ -243,12 +368,53 @@ export default function ApplicationDetailPage() {
                 variant="primary"
                 size="md"
                 loading={isResubmitting}
+                disabled={!resubmitRemarks.trim() && !resubmitFile}
                 onClick={() => resubmit()}
                 style={{ width: '100%' }}
               >
                 <Send size={14} style={{ marginRight: 6 }} />
-                Resubmit Application
+                Submit Response & Resume Review
               </Button>
+            </Card>
+          )}
+
+          {/* Clarification History Timeline */}
+          {app.clarificationHistory?.length > 0 && (
+            <Card>
+              <h2 className={styles.cardTitle} style={{ fontSize: 14, marginBottom: 12 }}>
+                Clarification Exchange History ({app.clarificationHistory.length})
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {app.clarificationHistory.map((ch, idx) => (
+                  <div key={idx} style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: 10, fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6B7280', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, color: '#374151' }}>{ch.requestedBy || 'Officer'}</span>
+                      <span>{ch.requestedAt ? format(new Date(ch.requestedAt), 'dd MMM yyyy') : ''}</span>
+                    </div>
+                    <div style={{ color: '#1F2937', marginBottom: 6 }}>"{ch.remarks}"</div>
+                    {ch.documentKey && (
+                      <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>
+                        Target Document: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{ch.documentKey}</span>
+                      </div>
+                    )}
+                    {ch.citizenResponse ? (
+                      <div style={{ background: '#ECFDF5', borderLeft: '3px solid #10B981', padding: '6px 8px', borderRadius: 4, marginTop: 6 }}>
+                        <div style={{ fontWeight: 600, color: '#065F46', fontSize: 11 }}>Citizen Answer:</div>
+                        <div style={{ color: '#047857' }}>{ch.citizenResponse}</div>
+                        {ch.respondedAt && (
+                          <div style={{ fontSize: 10, color: '#059669', marginTop: 2 }}>
+                            Replied on {format(new Date(ch.respondedAt), 'dd MMM yyyy, h:mm a')}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 11, color: '#B45309', fontStyle: 'italic', marginTop: 4 }}>
+                        ⏳ Awaiting response
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </Card>
           )}
 

@@ -18,10 +18,15 @@ import {
   RefreshCw,
   ExternalLink,
   ChevronRight,
-  Info
+  Info,
+  ShieldCheck,
+  Scissors,
+  GitMerge,
+  UserCheck,
+  ArrowRightLeft
 } from 'lucide-react';
 import { v2AdminService } from '../../services/v2AdminService';
-import { schemeService } from '../../services/adminServices';
+import { schemeService, familyService } from '../../services/adminServices';
 import styles from './FamilyCaseViewPage.module.css';
 
 export default function FamilyCaseViewPage() {
@@ -76,6 +81,73 @@ export default function FamilyCaseViewPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
     },
+  });
+
+  // ── Lifecycle Operations State & Mutations ──────────────
+  const [activeOp, setActiveOp] = useState('split');
+  const [splitSelectedMembers, setSplitSelectedMembers] = useState([]);
+  const [splitReason, setSplitReason] = useState('Household partition / separate kitchen');
+  const [mergeTargetFamilyId, setMergeTargetFamilyId] = useState('');
+  const [mergeReason, setMergeReason] = useState('Family reunion / combined kitchen');
+  const [transferMemberId, setTransferMemberId] = useState('');
+  const [transferDestFamilyId, setTransferDestFamilyId] = useState('');
+  const [transferReason, setTransferReason] = useState('Marriage / relocation');
+  const [changeHeadMemberId, setChangeHeadMemberId] = useState('');
+  const [changeHeadReason, setChangeHeadReason] = useState('Succession / seniority');
+
+  const { mutate: runSplitFamily, isPending: isSplitting } = useMutation({
+    mutationFn: (payload) => familyService.splitFamily(id, payload),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg(`Family split complete! New family created: ${res?.newFamily?.familyId || 'Success'}`);
+      setSplitSelectedMembers([]);
+      setTimeout(() => setToastMsg(''), 6000);
+    },
+    onError: (err) => alert(err?.response?.data?.message || err.message || 'Split failed'),
+  });
+
+  const { mutate: runMergeFamily, isPending: isMerging } = useMutation({
+    mutationFn: (payload) => familyService.mergeFamily(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Family successfully merged and archived into current family!');
+      setMergeTargetFamilyId('');
+      setTimeout(() => setToastMsg(''), 6000);
+    },
+    onError: (err) => alert(err?.response?.data?.message || err.message || 'Merge failed'),
+  });
+
+  const { mutate: runTransferMember, isPending: isTransferring } = useMutation({
+    mutationFn: ({ memberId, payload }) => familyService.transferMember(id, memberId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Member successfully transferred to destination family!');
+      setTransferMemberId('');
+      setTransferDestFamilyId('');
+      setTimeout(() => setToastMsg(''), 6000);
+    },
+    onError: (err) => alert(err?.response?.data?.message || err.message || 'Transfer failed'),
+  });
+
+  const { mutate: runChangeHead, isPending: isChangingHead } = useMutation({
+    mutationFn: (payload) => familyService.changeHead(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Head of family succession updated successfully!');
+      setChangeHeadMemberId('');
+      setTimeout(() => setToastMsg(''), 6000);
+    },
+    onError: (err) => alert(err?.response?.data?.message || err.message || 'Change head failed'),
+  });
+
+  const { mutate: runRecalculate, isPending: isRecalculating } = useMutation({
+    mutationFn: () => familyService.recalculateComposition(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['familyCaseView', id] });
+      setToastMsg('Family demographic composition recalculated successfully!');
+      setTimeout(() => setToastMsg(''), 5000);
+    },
+    onError: (err) => alert(err?.response?.data?.message || err.message || 'Recalculation failed'),
   });
 
   if (isLoading) {
@@ -303,6 +375,95 @@ export default function FamilyCaseViewPage() {
         </div>
       </section>
 
+      {/* ── Socioeconomic & Demographic Overview Card ───── */}
+      {(family?.familyComposition || family?.socioeconomic || family?.household) && (
+        <section style={{
+          background: 'var(--color-white)',
+          border: '1px solid var(--color-gray-200)',
+          borderRadius: 14,
+          padding: '16px 20px',
+          marginBottom: 20,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--color-navy-900)' }}>
+              <ShieldCheck size={18} color="#8B5CF6" />
+              <span>Verified Socioeconomic & Household Registry Data</span>
+            </div>
+            <button
+              onClick={() => runRecalculate()}
+              disabled={isRecalculating}
+              style={{
+                background: 'transparent',
+                border: '1px solid #CBD5E1',
+                padding: '4px 10px',
+                borderRadius: 6,
+                fontSize: 12,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                color: '#475569'
+              }}
+            >
+              <RefreshCw size={12} />
+              {isRecalculating ? 'Recalculating...' : 'Recalculate Demographics'}
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, fontSize: 13 }}>
+            <div>
+              <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Family Type</span>
+              <strong>{family.familyType || 'Nuclear'}</strong>
+            </div>
+            {family.familyComposition && (
+              <>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Earning / Dependents</span>
+                  <strong>{family.familyComposition.earningMembers} Earning / {family.familyComposition.dependentMembers} Dep</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Seniors / Children</span>
+                  <strong>{family.familyComposition.seniorCitizens} Senior / {family.familyComposition.children} Child</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Disabled / Students</span>
+                  <strong>{family.familyComposition.disabledMembers} PwD / {family.familyComposition.students} Student</strong>
+                </div>
+              </>
+            )}
+            {family.socioeconomic && (
+              <>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Primary Livelihood</span>
+                  <strong>{family.socioeconomic.primaryLivelihood || '—'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Land Holding</span>
+                  <strong>{family.socioeconomic.landHolding || 0} acres</strong>
+                </div>
+              </>
+            )}
+            {family.household && (
+              <>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Dwelling Type</span>
+                  <strong>{family.household.dwellingType || 'Pucca'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: 11 }}>Amenities</span>
+                  <strong>
+                    {family.household.electricityConnection ? '⚡Elec ' : ''}
+                    {family.household.toiletAvailable ? '🚽Toilet ' : ''}
+                    {family.household.vehicleOwned ? '🛵Vehicle' : ''}
+                  </strong>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* ── Navigation Tabs ───────────────────────────────── */}
       <div className={styles.tabsContainer}>
         <button
@@ -321,6 +482,14 @@ export default function FamilyCaseViewPage() {
           <Users size={16} />
           <span>Household Members</span>
           <span className={styles.tabBadge}>{members.length}</span>
+        </button>
+
+        <button
+          className={`${styles.tabBtn} ${activeTab === 'operations' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('operations')}
+        >
+          <ShieldCheck size={16} />
+          <span>Lifecycle Operations</span>
         </button>
 
         <button
@@ -846,6 +1015,356 @@ export default function FamilyCaseViewPage() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* ── TAB: LIFECYCLE OPERATIONS ───────────────────── */}
+      {activeTab === 'operations' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Operations Switcher */}
+          <div style={{ display: 'flex', gap: 10, background: '#F1F5F9', padding: 6, borderRadius: 10, flexWrap: 'wrap' }}>
+            {[
+              { id: 'split', label: 'Split Family', icon: Scissors },
+              { id: 'merge', label: 'Merge Family', icon: GitMerge },
+              { id: 'transfer', label: 'Transfer Member', icon: ArrowRightLeft },
+              { id: 'changeHead', label: 'Change Head of Family', icon: UserCheck },
+            ].map(op => {
+              const Icon = op.icon;
+              const isActive = activeOp === op.id;
+              return (
+                <button
+                  key={op.id}
+                  onClick={() => setActiveOp(op.id)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: isActive ? '#FFFFFF' : 'transparent',
+                    color: isActive ? '#1E293B' : '#64748B',
+                    fontWeight: isActive ? 600 : 500,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  }}
+                >
+                  <Icon size={15} color={isActive ? '#7C3AED' : '#64748B'} />
+                  <span>{op.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Op 1: Split Family */}
+          {activeOp === 'split' && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Scissors size={18} color="#7C3AED" />
+                <span>Split Household into New Family ID</span>
+              </h3>
+              <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 16px' }}>
+                Select members to move out into a newly created independent family. An official FamilySplit life event will be registered.
+              </p>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 8 }}>
+                  Select Members to Move ({splitSelectedMembers.length} selected):
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                  {members.map(m => {
+                    const isSelected = splitSelectedMembers.includes(m._id);
+                    return (
+                      <label
+                        key={m._id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '10px 12px',
+                          borderRadius: 8,
+                          border: isSelected ? '1px solid #7C3AED' : '1px solid #E2E8F0',
+                          background: isSelected ? '#F5F3FF' : '#F8FAFC',
+                          cursor: 'pointer',
+                          fontSize: 13,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) setSplitSelectedMembers([...splitSelectedMembers, m._id]);
+                            else setSplitSelectedMembers(splitSelectedMembers.filter(mid => mid !== m._id));
+                          }}
+                        />
+                        <div>
+                          <strong>{m.name}</strong> ({m.relationToHead || 'Member'})
+                          <div style={{ fontSize: 11, color: '#64748B' }}>{m.memberId} • Age: {m.age || '—'}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                  Partition Reason / Officer Remarks:
+                </label>
+                <input
+                  type="text"
+                  value={splitReason}
+                  onChange={(e) => setSplitReason(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                  placeholder="e.g., Marriage and separate residential unit established"
+                />
+              </div>
+
+              <button
+                onClick={() => runSplitFamily({ memberIds: splitSelectedMembers, reason: splitReason })}
+                disabled={isSplitting || splitSelectedMembers.length === 0}
+                style={{
+                  background: '#7C3AED',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  opacity: (isSplitting || splitSelectedMembers.length === 0) ? 0.6 : 1,
+                }}
+              >
+                {isSplitting ? 'Processing Split...' : `Execute Split (${splitSelectedMembers.length} Members)`}
+              </button>
+            </div>
+          )}
+
+          {/* Op 2: Merge Family */}
+          {activeOp === 'merge' && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <GitMerge size={18} color="#0E7490" />
+                <span>Merge Another Family into This Family</span>
+              </h3>
+              <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 16px' }}>
+                All members and eligible records from the source family will be transferred into this family. The source family will be marked Merged.
+              </p>
+
+              <div style={{ marginBottom: 14, maxWidth: 400 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                  Source Family ID (to be absorbed):
+                </label>
+                <input
+                  type="text"
+                  value={mergeTargetFamilyId}
+                  onChange={(e) => setMergeTargetFamilyId(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                  placeholder="e.g., GJ-GND-2024-002"
+                />
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                  Reason / Order Reference:
+                </label>
+                <input
+                  type="text"
+                  value={mergeReason}
+                  onChange={(e) => setMergeReason(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                  placeholder="e.g., Joint living order approved by Talati"
+                />
+              </div>
+
+              <button
+                onClick={() => runMergeFamily({ mergeFamilyId: mergeTargetFamilyId, reason: mergeReason })}
+                disabled={isMerging || !mergeTargetFamilyId.trim()}
+                style={{
+                  background: '#0E7490',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  opacity: (isMerging || !mergeTargetFamilyId.trim()) ? 0.6 : 1,
+                }}
+              >
+                {isMerging ? 'Merging Families...' : 'Execute Family Merge'}
+              </button>
+            </div>
+          )}
+
+          {/* Op 3: Transfer Member */}
+          {activeOp === 'transfer' && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ArrowRightLeft size={18} color="#059669" />
+                <span>Transfer Individual Member to Another Family</span>
+              </h3>
+              <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 16px' }}>
+                Relocate a member (e.g., daughter after marriage or elderly moving to sibling household).
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                    Select Member to Transfer:
+                  </label>
+                  <select
+                    value={transferMemberId}
+                    onChange={(e) => setTransferMemberId(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                  >
+                    <option value="">-- Choose Member --</option>
+                    {members.map(m => (
+                      <option key={m._id} value={m._id}>
+                        {m.name} ({m.relationToHead || 'Member'}) - {m.memberId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                    Destination Family ID:
+                  </label>
+                  <input
+                    type="text"
+                    value={transferDestFamilyId}
+                    onChange={(e) => setTransferDestFamilyId(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                    placeholder="e.g., GJ-GND-2024-003"
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                  Transfer Reason:
+                </label>
+                <input
+                  type="text"
+                  value={transferReason}
+                  onChange={(e) => setTransferReason(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                  placeholder="e.g., Post-marriage household transfer"
+                />
+              </div>
+
+              <button
+                onClick={() => runTransferMember({ memberId: transferMemberId, payload: { destinationFamilyId: transferDestFamilyId, reason: transferReason } })}
+                disabled={isTransferring || !transferMemberId || !transferDestFamilyId.trim()}
+                style={{
+                  background: '#059669',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  opacity: (isTransferring || !transferMemberId || !transferDestFamilyId.trim()) ? 0.6 : 1,
+                }}
+              >
+                {isTransferring ? 'Transferring Member...' : 'Transfer Member'}
+              </button>
+            </div>
+          )}
+
+          {/* Op 4: Change Head of Family */}
+          {activeOp === 'changeHead' && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, padding: 20 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <UserCheck size={18} color="#D97706" />
+                <span>Head of Family Succession</span>
+              </h3>
+              <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 16px' }}>
+                Appoint an active adult member as the new Head of Family (e.g., upon retirement, demise, or migration of prior head).
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                    Select New Head of Family:
+                  </label>
+                  <select
+                    value={changeHeadMemberId}
+                    onChange={(e) => setChangeHeadMemberId(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                  >
+                    <option value="">-- Choose Eligible Adult Member --</option>
+                    {members
+                      .filter(m => m.lifecycleStatus === 'Active' && m.relationToHead !== 'Self')
+                      .map(m => (
+                        <option key={m._id} value={m._id}>
+                          {m.name} ({m.relationToHead || 'Member'}) - Age: {m.age || '—'}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+                    Reason for Succession:
+                  </label>
+                  <input
+                    type="text"
+                    value={changeHeadReason}
+                    onChange={(e) => setChangeHeadReason(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: 13 }}
+                    placeholder="e.g., Deceased previous head, family consent"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={() => runChangeHead({ newHeadMemberId: changeHeadMemberId, reason: changeHeadReason })}
+                disabled={isChangingHead || !changeHeadMemberId}
+                style={{
+                  background: '#D97706',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  opacity: (isChangingHead || !changeHeadMemberId) ? 0.6 : 1,
+                }}
+              >
+                {isChangingHead ? 'Updating Succession...' : 'Confirm Head Succession'}
+              </button>
+            </div>
+          )}
+
+          {/* Split / Merge / Lineage Audit History */}
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 18 }}>
+            <h4 style={{ margin: '0 0 10px', fontSize: 14, color: '#334155' }}>
+              📜 Family Lineage & Structural History
+            </h4>
+            {(!family.splitHistory?.length && !family.mergeHistory?.length) ? (
+              <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>
+                No structural lifecycle events (splits or merges) recorded for this family record.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(family.splitHistory || []).map((s, idx) => (
+                  <div key={`split-${idx}`} style={{ fontSize: 12, padding: '6px 10px', background: '#FFFFFF', borderRadius: 6, border: '1px solid #E2E8F0' }}>
+                    ✂️ <strong>Family Split</strong> on {new Date(s.splitDate).toLocaleDateString('en-IN')}: {s.movedMemberIds?.length || 0} members partitioned into new family. Reason: <em>{s.reason || 'Not specified'}</em>
+                  </div>
+                ))}
+                {(family.mergeHistory || []).map((m, idx) => (
+                  <div key={`merge-${idx}`} style={{ fontSize: 12, padding: '6px 10px', background: '#FFFFFF', borderRadius: 6, border: '1px solid #E2E8F0' }}>
+                    🔗 <strong>Family Merge</strong> on {new Date(m.mergeDate).toLocaleDateString('en-IN')}: Source family absorbed. Reason: <em>{m.reason || 'Not specified'}</em>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

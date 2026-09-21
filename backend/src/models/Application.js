@@ -146,6 +146,38 @@ const applicationSchema = new mongoose.Schema(
     correctionRequired: { type: String, default: null },
     resubmissionDeadline: { type: Date, default: null },
 
+    // ── Phase 4: Workflow, SLA & Officer Experience ──────────────────────────
+    priority: {
+      type: String,
+      enum: ['Normal', 'FastTrack', 'Urgent'],
+      default: 'Normal',
+    },
+    autoApprovalEligible: { type: Boolean, default: false },
+    autoApproved:         { type: Boolean, default: false },
+    escalated:            { type: Boolean, default: false },
+    escalatedAt:          { type: Date },
+    escalationReason:     { type: String, default: null },
+    assignedOfficerId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Officer' },
+
+    sla: {
+      targetCompletionDate: { type: Date },
+      slaDaysTotal:         { type: Number, default: 15 },
+      isBreached:           { type: Boolean, default: false },
+      breachedAt:           { type: Date },
+    },
+
+    clarificationHistory: [
+      {
+        requestedAt:     { type: Date, default: Date.now },
+        requestedBy:     { type: String, default: 'Officer' },
+        remarks:         { type: String, required: true },
+        documentKey:     { type: String },
+        citizenResponse: { type: String },
+        respondedAt:     { type: Date },
+        _id: false,
+      },
+    ],
+
     submittedAt: { type: Date, default: Date.now },
     decidedAt:   { type: Date },
   },
@@ -157,5 +189,8 @@ applicationSchema.index({ memberId: 1, schemeId: 1 }, { unique: true });
 applicationSchema.index({ status: 1, riskFlag: 1 });
 applicationSchema.index({ currentPipelineLevel: 1, status: 1 }); // officer queue queries
 applicationSchema.index({ familyId: 1 });
+applicationSchema.index({ priority: 1, status: 1 });
+applicationSchema.index({ 'sla.isBreached': 1, status: 1 });
+applicationSchema.index({ escalated: 1, status: 1 });
 
 module.exports = mongoose.model('Application', applicationSchema);

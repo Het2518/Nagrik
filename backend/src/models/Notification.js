@@ -31,8 +31,38 @@ const notificationSchema = new mongoose.Schema(
         'ApplicationStatusUpdate',
         'BenefitRenewal',
         'RiskAlert',
+        'SLABreach',
+        'DocumentExpiring',
+        'DocumentExpiry',
+        'WelfareNudge',
+        'SystemAlert',
       ],
       default: 'BenefitDiscovered',
+      index: true,
+    },
+    priority: {
+      type: String,
+      enum: ['Low', 'Normal', 'High', 'Critical'],
+      default: 'Normal',
+      index: true,
+    },
+    category: {
+      type: String,
+      enum: [
+        'BenefitRenewal',
+        'SLABreach',
+        'DocumentExpiry',
+        'SystemAlert',
+        'WelfareNudge',
+        'ApplicationStatus',
+        'General',
+      ],
+      default: 'General',
+      index: true,
+    },
+    actionRequired: {
+      type: Boolean,
+      default: false,
       index: true,
     },
     titleEn: {
@@ -54,6 +84,10 @@ const notificationSchema = new mongoose.Schema(
     nextActionUrl: {
       type: String,
       default: '',
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
     },
     isRead: {
       type: Boolean,

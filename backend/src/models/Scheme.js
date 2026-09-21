@@ -78,6 +78,48 @@ const schemeSchema = new mongoose.Schema(
       requiresFarmerStatus: Boolean,    // for PM-Kisan, Mahila Kisan
       requiresBOCWWorker:   Boolean,    // for BOCW scheme
       conflictingSchemes:   [String],   // scheme codes blocking co-enrollment
+      minDeprivationScore:  { type: Number, default: null }, // for social registry
+      targetOccupations:    { type: [String], default: [] }, // specific occupations
+      minChildrenCount:     { type: Number, default: null },
+      requiresSeniorCitizen:{ type: Boolean, default: false },
+    },
+
+    // ── Target Group (Req 21) ───────────────────────────────────────────────
+    targetGroup: {
+      type: String,
+      enum: ['Individual', 'Family', 'HouseholdHead', 'AllEligibleMembers'],
+      default: 'Individual',
+    },
+
+    // ── Stacking & Co-enrollment Rules (Req 22) ─────────────────────────────
+    stackingRules: {
+      allowsWith:    { type: [String], default: [] },
+      blockedWith:   { type: [String], default: [] },
+      maxConcurrent: { type: Number, default: 5 },
+    },
+
+    // ── Geographic Restrictions & Saturation (Req 23) ────────────────────────
+    geographicRestrictions: {
+      districts: { type: [String], default: [] }, // empty = all districts
+      talukas:   { type: [String], default: [] },
+      urban:     { type: Boolean, default: true },
+      rural:     { type: Boolean, default: true },
+      tribal:    { type: Boolean, default: true },
+    },
+
+    // ── Budget Tracking (Req 24) ─────────────────────────────────────────────
+    budgetInfo: {
+      totalBudget:     { type: Number, default: 50000000 },
+      disbursedAmount: { type: Number, default: 12500000 },
+      remainingBudget: { type: Number, default: 37500000 },
+      fiscalYear:      { type: String, default: '2024-2025' },
+    },
+
+    // ── Renewal Rules (Req 20) ──────────────────────────────────────────────
+    renewalRules: {
+      autoRenewable:       { type: Boolean, default: false },
+      renewalPeriodMonths: { type: Number, default: 12 },
+      gracePeriodDays:     { type: Number, default: 30 },
     },
 
     // ── Documents citizen MUST upload for this scheme ────────────────────────
@@ -98,6 +140,15 @@ const schemeSchema = new mongoose.Schema(
 
     // ── V2 Extensions: Rule Versioning & Life-Event Triggers ────────────────
     version:              { type: Number, default: 1 },
+    ruleSnapshots: [
+      {
+        version: Number,
+        effectiveDate: { type: Date, default: Date.now },
+        rules: mongoose.Schema.Types.Mixed,
+        changedBy: String,
+        reason: String,
+      }
+    ],
     lifeEventTriggers:    { type: [String], default: [] }, // e.g. ['AgeThresholdReached', 'StudentStatusChange', 'IncomeChange']
     optionalEvidence:     [requiredDocumentSchema],
     renewalPeriodMonths:  { type: Number, default: 12 },

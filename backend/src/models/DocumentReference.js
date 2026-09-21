@@ -15,6 +15,28 @@ const documentReferenceSchema = new mongoose.Schema(
     // Income certificates and others expire — null means no expiry tracked
     expiryDate: { type: Date, default: null },
     isVerifiedByOfficer: { type: Boolean, default: false },
+    status: {
+      type: String,
+      enum: ['Pending', 'Verified', 'Rejected', 'Expired', 'Revoked'],
+      default: 'Pending',
+    },
+    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', default: null },
+    sourceType: {
+      type: String,
+      enum: ['ManualUpload', 'DigiLocker', 'OfficerUploaded', 'SystemGenerated'],
+      default: 'ManualUpload',
+    },
+    verificationHistory: [
+      {
+        verifiedBy: String,
+        verifiedAt: { type: Date, default: Date.now },
+        action: String,
+        remarks: String,
+      },
+    ],
+    renewalAlertSentAt: { type: Date, default: null },
+    replacedByDocId:    { type: mongoose.Schema.Types.ObjectId, ref: 'DocumentReference', default: null },
+    previousDocId:      { type: mongoose.Schema.Types.ObjectId, ref: 'DocumentReference', default: null },
     docUrl: { type: String, default: null },
     fileName: { type: String, default: null },
     linkedApplicationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Application' }],

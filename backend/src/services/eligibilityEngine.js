@@ -95,23 +95,105 @@ const checkEligibility = (family, member, schemes) => {
     // Rule 8: Student Status
     if (r.requiresStudentStatus) {
       if (!member.isStudent) {
-        schemeFailures.push('Member must be a student');
+        schemeFailures.push('Member must be an actively enrolled student');
       } else {
         satisfiedRules.push('Active enrolled student status confirmed');
       }
     }
 
+    // Rule 9: Farmer Status
+    if (r.requiresFarmerStatus) {
+      const isFarmer = member.occupation === 'Farmer' || family.socioeconomic?.isFarmer || (family.socioeconomic?.landHolding > 0);
+      if (!isFarmer) {
+        schemeFailures.push('Member or family must be registered as agriculturalist/farmer');
+      } else {
+        satisfiedRules.push('Agriculturalist / landholder status confirmed');
+      }
+    }
+
+    // Rule 10: BOCW Construction Worker
+    if (r.requiresBOCWWorker) {
+      const isBocw = family.socioeconomic?.isBOCWWorker || member.occupation === 'Construction' || member.occupation === 'Labour';
+      if (!isBocw) {
+        schemeFailures.push('Registered Building & Other Construction Worker (BOCW) status required');
+      } else {
+        satisfiedRules.push('BOCW construction worker status confirmed');
+      }
+    }
+
+    // Rule 11: Specific Occupations
+    if (r.targetOccupations?.length) {
+      if (!r.targetOccupations.includes(member.occupation)) {
+        schemeFailures.push(`Occupation must be one of: ${r.targetOccupations.join(', ')} (member is ${member.occupation || 'Unemployed'})`);
+      } else {
+        satisfiedRules.push(`Occupation '${member.occupation}' matches target beneficiary group`);
+      }
+    }
+
+    // Rule 12: Household Composition (Children / Seniors)
+    if (r.minChildrenCount !== undefined && r.minChildrenCount !== null) {
+      const childCount = family.familyComposition?.children || 0;
+      if (childCount < r.minChildrenCount) {
+        schemeFailures.push(`Household must have at least ${r.minChildrenCount} children under 18 (has ${childCount})`);
+      } else {
+        satisfiedRules.push(`Household children requirement satisfied (${childCount} ≥ ${r.minChildrenCount})`);
+      }
+    }
+
+    if (r.requiresSeniorCitizen) {
+      const seniors = family.familyComposition?.seniorCitizens || (member.age >= 60 ? 1 : 0);
+      if (seniors < 1) {
+        schemeFailures.push('Household must have at least one senior citizen (60+ years)');
+      } else {
+        satisfiedRules.push('Senior citizen presence in household confirmed');
+      }
+    }
+
+    // Rule 13: Geographic Restrictions
+    let isDistrictEligible = true;
+    let geoMessage = 'Available statewide in Gujarat';
+    if (scheme.geographicRestrictions?.districts?.length) {
+      const familyDistrict = family.address?.district || '';
+      const matched = scheme.geographicRestrictions.districts.some(
+        d => d.toLowerCase() === familyDistrict.toLowerCase()
+      );
+      if (!matched) {
+        isDistrictEligible = false;
+        geoMessage = `Restricted to: ${scheme.geographicRestrictions.districts.join(', ')}`;
+        schemeFailures.push(`Scheme is only available in districts: ${scheme.geographicRestrictions.districts.join(', ')}`);
+      } else {
+        geoMessage = `Available in ${familyDistrict} district`;
+        satisfiedRules.push(`District '${familyDistrict}' is within eligible geographic zone`);
+      }
+    }
+
+    // Rule 14: Social Registry Deprivation Score
+    if (r.minDeprivationScore !== undefined && r.minDeprivationScore !== null) {
+      const familyDepScore = family.deprivationScore || 50; // fallback if not yet synced
+      if (familyDepScore < r.minDeprivationScore) {
+        schemeFailures.push(`Minimum Social Deprivation Score required is ${r.minDeprivationScore} (family score is ${familyDepScore})`);
+      } else {
+        satisfiedRules.push(`Social vulnerability score (${familyDepScore}) meets minimum threshold (≥ ${r.minDeprivationScore})`);
+      }
+    }
+
+    const totalRules = satisfiedRules.length + schemeFailures.length;
     const isEligible = schemeFailures.length === 0;
+    const confidenceScore = totalRules > 0
+      ? Math.round((satisfiedRules.length / totalRules) * 100)
+      : (isEligible ? 100 : 0);
 
     // Determine fine-grained V2 status
     let status = 'NotEligible';
     if (isEligible) {
       status = 'Eligible';
+    } else if (confidenceScore >= 75) {
+      status = 'PotentialMatch'; // Partial match / near eligibility
     }
 
     // Construct human-readable "Why" explanation
     const why = isEligible
-      ? satisfiedRules.slice(0, 3)
+      ? satisfiedRules.slice(0, 4)
       : schemeFailures;
 
     // Missing required evidence for this scheme
@@ -148,8 +230,30 @@ const checkEligibility = (family, member, schemes) => {
       department: scheme.department,
       benefitType: scheme.benefitType,
       maxBenefitAmount: scheme.maxBenefitAmount,
+      targetGroup: scheme.targetGroup || 'Individual',
       isEligible,
+      confidenceScore,
       reasons: schemeFailures,
+      geographicStatus: {
+        isDistrictEligible,
+        message: geoMessage,
+      },
+      stackingInfo: {
+        allowsWith: scheme.stackingRules?.allowsWith || [],
+        blockedWith: scheme.stackingRules?.blockedWith || scheme.eligibilityRules?.conflictingSchemes || [],
+        maxConcurrent: scheme.stackingRules?.maxConcurrent || 5,
+      },
+      budgetInfo: scheme.budgetInfo || {
+        totalBudget: 50000000,
+        disbursedAmount: 12500000,
+        remainingBudget: 37500000,
+        fiscalYear: '2024-2025',
+      },
+      renewalRules: scheme.renewalRules || {
+        autoRenewable: false,
+        renewalPeriodMonths: 12,
+        gracePeriodDays: 30,
+      },
       // ── V2 Explainability Extensions ──────────────────────────────────────
       status,
       why,

@@ -36,7 +36,16 @@ const step2Schema = z.object({
 const step3Schema = z.object({
   annualIncome: z.coerce.number().min(0, 'Income must be a positive number'),
   category: z.enum(['SC', 'ST', 'OBC', 'General', 'EWS']),
-  isBPL: z.boolean(),
+  isBPL: z.boolean().default(false),
+  familyType: z.enum(['Nuclear', 'Joint', 'SingleParent', 'SinglePerson']).default('Nuclear'),
+  primaryLivelihood: z.enum(['Agriculture', 'Labour', 'Service', 'Business', 'SelfEmployed', 'Other']).default('Labour'),
+  landHolding: z.coerce.number().min(0).default(0),
+  dwellingType: z.enum(['Kutcha', 'SemiPucca', 'Pucca', 'Flat']).default('Pucca'),
+  drinkingWaterSource: z.enum(['PipedTap', 'Well', 'HandPump', 'Tanker', 'Other']).default('PipedTap'),
+  cookingFuel: z.enum(['LPG', 'Firewood', 'Kerosene', 'Electric', 'Other']).default('LPG'),
+  toiletAvailable: z.boolean().default(true),
+  electricityConnection: z.boolean().default(true),
+  vehicleOwned: z.boolean().default(false),
 });
 
 const STEPS = [
@@ -164,11 +173,11 @@ function Step3({ onNext, onBack, savedData }) {
   return (
     <form onSubmit={handleSubmit(onNext)} className={styles.stepForm}>
       <div className={styles.stepHeader}>
-        <h2>Income & Social Profile</h2>
-        <p>This information determines your eligibility for welfare schemes</p>
+        <h2>Income, Household & Socioeconomic Profile</h2>
+        <p>This information determines your eligibility for welfare schemes across Gujarat</p>
       </div>
       <div className={styles.formGrid}>
-        <Input label="Annual Family Income (₹)" type="number" min="0" required error={errors.annualIncome?.message} hint="Total income of all earning members per year" {...register('annualIncome')} className={styles.fullWidth} />
+        <Input label="Annual Family Income (₹)" type="number" min="0" required error={errors.annualIncome?.message} hint="Total income of all earning members per year" {...register('annualIncome')} />
         <div className={styles.field}>
           <label className={styles.label}>Social Category <span className={styles.req}>*</span></label>
           <select className={styles.select} {...register('category')}>
@@ -179,10 +188,74 @@ function Step3({ onNext, onBack, savedData }) {
             <option value="EWS">EWS (Economically Weaker Section)</option>
           </select>
         </div>
+        <div className={styles.field}>
+          <label className={styles.label}>Family Structure Type</label>
+          <select className={styles.select} {...register('familyType')}>
+            <option value="Nuclear">Nuclear Family</option>
+            <option value="Joint">Joint Family</option>
+            <option value="SingleParent">Single Parent</option>
+            <option value="SinglePerson">Single Person</option>
+          </select>
+        </div>
+        <div className={styles.field}>
+          <label className={styles.label}>Primary Livelihood</label>
+          <select className={styles.select} {...register('primaryLivelihood')}>
+            <option value="Agriculture">Agriculture / Farming</option>
+            <option value="Labour">Daily Wage / Construction Labour</option>
+            <option value="Service">Salaried Employment / Service</option>
+            <option value="Business">Small Trade / Business</option>
+            <option value="SelfEmployed">Artisan / Self-Employed</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <Input label="Land Holding (in Acres)" type="number" step="0.1" min="0" defaultValue={0} {...register('landHolding')} />
+        <div className={styles.field}>
+          <label className={styles.label}>Dwelling / House Type</label>
+          <select className={styles.select} {...register('dwellingType')}>
+            <option value="Pucca">Pucca (Permanent Brick/Concrete)</option>
+            <option value="SemiPucca">Semi-Pucca (Tiled/Tin Roof)</option>
+            <option value="Kutcha">Kutcha (Mud/Thatch)</option>
+            <option value="Flat">Apartment / Flat</option>
+          </select>
+        </div>
+        <div className={styles.field}>
+          <label className={styles.label}>Drinking Water Source</label>
+          <select className={styles.select} {...register('drinkingWaterSource')}>
+            <option value="PipedTap">Piped Tap Water</option>
+            <option value="HandPump">Hand Pump / Borewell</option>
+            <option value="Well">Open Well</option>
+            <option value="Tanker">Water Tanker</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div className={styles.field}>
+          <label className={styles.label}>Primary Cooking Fuel</label>
+          <select className={styles.select} {...register('cookingFuel')}>
+            <option value="LPG">LPG / Piped Gas</option>
+            <option value="Firewood">Firewood / Biomass</option>
+            <option value="Kerosene">Kerosene</option>
+            <option value="Electric">Electric Induction</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
       </div>
-      <div className={styles.checkboxRow}>
-        <input type="checkbox" id="isBPL" {...register('isBPL')} />
-        <label htmlFor="isBPL">Family holds a BPL (Below Poverty Line) card</label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16 }}>
+        <div className={styles.checkboxRow}>
+          <input type="checkbox" id="isBPL" {...register('isBPL')} />
+          <label htmlFor="isBPL">Family holds a BPL Card</label>
+        </div>
+        <div className={styles.checkboxRow}>
+          <input type="checkbox" id="toiletAvailable" {...register('toiletAvailable')} />
+          <label htmlFor="toiletAvailable">Sanitary Toilet Available</label>
+        </div>
+        <div className={styles.checkboxRow}>
+          <input type="checkbox" id="electricityConnection" {...register('electricityConnection')} />
+          <label htmlFor="electricityConnection">Electricity Connected</label>
+        </div>
+        <div className={styles.checkboxRow}>
+          <input type="checkbox" id="vehicleOwned" {...register('vehicleOwned')} />
+          <label htmlFor="vehicleOwned">Motorized Vehicle Owned</label>
+        </div>
       </div>
       <div className={styles.stepActions}>
         <Button type="button" variant="outline" size="lg" icon={<ChevronLeft size={18} />} onClick={onBack}>Back</Button>
@@ -202,14 +275,12 @@ function Step4({ data, onBack, onSubmit, isSubmitting }) {
       </div>
 
       <div className={styles.reviewSection}>
-        <h3>Address</h3>
+        <h3>Address & Dwelling</h3>
         <div className={styles.reviewGrid}>
-          <div><span>Ration Card</span><strong>{data.step1?.rationCardNumber}</strong></div>
-          <div><span>Type</span><strong>{data.step1?.rationCardType}</strong></div>
-          <div><span>Village</span><strong>{data.step1?.village}</strong></div>
-          <div><span>Taluka</span><strong>{data.step1?.taluka}</strong></div>
-          <div><span>District</span><strong>{data.step1?.district}</strong></div>
-          <div><span>Pincode</span><strong>{data.step1?.pincode}</strong></div>
+          <div><span>Ration Card</span><strong>{data.step1?.rationCardNumber} ({data.step1?.rationCardType})</strong></div>
+          <div><span>Village / Taluka</span><strong>{data.step1?.village}, {data.step1?.taluka}</strong></div>
+          <div><span>District & Pincode</span><strong>{data.step1?.district} - {data.step1?.pincode}</strong></div>
+          <div><span>Pucca House</span><strong>{data.step1?.hasPuccaHouse ? 'Yes' : 'No'}</strong></div>
         </div>
       </div>
 
@@ -225,11 +296,16 @@ function Step4({ data, onBack, onSubmit, isSubmitting }) {
       </div>
 
       <div className={styles.reviewSection}>
-        <h3>Social Profile</h3>
+        <h3>Socioeconomic & Household Details</h3>
         <div className={styles.reviewGrid}>
-          <div><span>Annual Income</span><strong>₹{Number(data.step3?.annualIncome).toLocaleString('en-IN')}</strong></div>
+          <div><span>Annual Income</span><strong>₹{Number(data.step3?.annualIncome || 0).toLocaleString('en-IN')}</strong></div>
           <div><span>Category</span><strong>{data.step3?.category}</strong></div>
-          <div><span>BPL Card</span><strong>{data.step3?.isBPL ? 'Yes' : 'No'}</strong></div>
+          <div><span>BPL Status</span><strong>{data.step3?.isBPL ? 'Yes (BPL)' : 'No'}</strong></div>
+          <div><span>Family Type</span><strong>{data.step3?.familyType || 'Nuclear'}</strong></div>
+          <div><span>Primary Livelihood</span><strong>{data.step3?.primaryLivelihood || '—'}</strong></div>
+          <div><span>Land Holding</span><strong>{data.step3?.landHolding || 0} acres</strong></div>
+          <div><span>Dwelling</span><strong>{data.step3?.dwellingType || '—'}</strong></div>
+          <div><span>Cooking Fuel</span><strong>{data.step3?.cookingFuel || '—'}</strong></div>
         </div>
       </div>
 
@@ -310,6 +386,20 @@ export default function OnboardingPage() {
         annualIncome:     Number(step3.annualIncome),
         category:         step3.category,
         isBPL:            step3.isBPL || false,
+        familyType:       step3.familyType || 'Nuclear',
+        socioeconomic: {
+          primaryLivelihood: step3.primaryLivelihood || 'Labour',
+          landHolding: Number(step3.landHolding || 0),
+          isFarmer: step3.primaryLivelihood === 'Agriculture',
+        },
+        household: {
+          dwellingType: step3.dwellingType || 'Pucca',
+          drinkingWaterSource: step3.drinkingWaterSource || 'PipedTap',
+          cookingFuel: step3.cookingFuel || 'LPG',
+          toiletAvailable: step3.toiletAvailable ?? true,
+          electricityConnection: step3.electricityConnection ?? true,
+          vehicleOwned: step3.vehicleOwned ?? false,
+        },
         address: {
           village: step1.village,
           taluka:  step1.taluka,

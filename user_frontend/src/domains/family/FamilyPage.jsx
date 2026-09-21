@@ -598,6 +598,243 @@ export default function FamilyPage({ openAddModal = false }) {
         </div>
       </Card>
 
+      {/* ── Family Composition (Phase 1) ──────────────────── */}
+      {family?.familyComposition && family.familyComposition.totalMembers > 0 && (
+        <Card>
+          <h2 className={styles.sectionTitle}>
+            <Users size={18} style={{ marginRight: 8, color: '#8B5CF6' }} />
+            Family Composition
+          </h2>
+          <div className={styles.addressGrid}>
+            <div>
+              <span>Total Members</span>
+              <strong>{family.familyComposition.totalMembers}</strong>
+            </div>
+            <div>
+              <span>Active Members</span>
+              <strong style={{ color: '#059669' }}>{family.familyComposition.activeMembers}</strong>
+            </div>
+            <div>
+              <span>Earning Members</span>
+              <strong>{family.familyComposition.earningMembers}</strong>
+            </div>
+            <div>
+              <span>Dependents</span>
+              <strong>{family.familyComposition.dependentMembers}</strong>
+            </div>
+            <div>
+              <span>Senior Citizens (60+)</span>
+              <strong style={{ color: '#D97706' }}>{family.familyComposition.seniorCitizens}</strong>
+            </div>
+            <div>
+              <span>Children (&lt;18)</span>
+              <strong style={{ color: '#3B82F6' }}>{family.familyComposition.children}</strong>
+            </div>
+            <div>
+              <span>Women</span>
+              <strong>{family.familyComposition.women}</strong>
+            </div>
+            <div>
+              <span>Persons with Disability</span>
+              <strong style={{ color: '#DC2626' }}>{family.familyComposition.disabledMembers}</strong>
+            </div>
+            <div>
+              <span>Students</span>
+              <strong>{family.familyComposition.students}</strong>
+            </div>
+            <div>
+              <span>Family Type</span>
+              <strong>{family.familyType || 'Nuclear'}</strong>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Socioeconomic & Household Details (Phase 1) ────── */}
+      {(family?.socioeconomic || family?.household) && (
+        <Card>
+          <h2 className={styles.sectionTitle}>
+            <MapPin size={18} style={{ marginRight: 8, color: '#F59E0B' }} />
+            Socioeconomic & Household Profile
+          </h2>
+          <div className={styles.addressGrid}>
+            {family.socioeconomic && (
+              <>
+                <div>
+                  <span>Primary Livelihood</span>
+                  <strong>{family.socioeconomic.primaryLivelihood || '—'}</strong>
+                </div>
+                <div>
+                  <span>Land Holding</span>
+                  <strong>{family.socioeconomic.landHolding || 0} acres</strong>
+                </div>
+                <div>
+                  <span>Secondary Income</span>
+                  <strong>₹{Number(family.socioeconomic.secondaryIncome || 0).toLocaleString('en-IN')}</strong>
+                </div>
+                <div>
+                  <span>Farmer Status</span>
+                  <strong>{family.socioeconomic.isFarmer ? '✅ Registered Farmer' : '—'}</strong>
+                </div>
+                <div>
+                  <span>BOCW Worker</span>
+                  <strong>{family.socioeconomic.isBOCWWorker ? '✅ Registered' : '—'}</strong>
+                </div>
+              </>
+            )}
+            {family.household && (
+              <>
+                <div>
+                  <span>Dwelling Type</span>
+                  <strong>{family.household.dwellingType || '—'}</strong>
+                </div>
+                <div>
+                  <span>Total Rooms</span>
+                  <strong>{family.household.totalRooms || '—'}</strong>
+                </div>
+                <div>
+                  <span>Drinking Water</span>
+                  <strong>{family.household.drinkingWaterSource || '—'}</strong>
+                </div>
+                <div>
+                  <span>Toilet Available</span>
+                  <strong>{family.household.toiletAvailable ? '✅ Yes' : '❌ No'}</strong>
+                </div>
+                <div>
+                  <span>Electricity</span>
+                  <strong>{family.household.electricityConnection ? '✅ Connected' : '❌ No'}</strong>
+                </div>
+                <div>
+                  <span>Cooking Fuel</span>
+                  <strong>{family.household.cookingFuel || '—'}</strong>
+                </div>
+                <div>
+                  <span>Vehicle Owned</span>
+                  <strong>{family.household.vehicleOwned ? '✅ Yes' : '—'}</strong>
+                </div>
+                <div>
+                  <span>Internet Access</span>
+                  <strong>{family.household.internetAccess ? '✅ Yes' : '❌ No'}</strong>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Family Lifecycle Operations (Phase 1) ────────── */}
+      <section className={styles.governanceSection}>
+        <div className={styles.governanceTop}>
+          <div>
+            <div className={styles.governanceTitle}>
+              <ShieldCheck size={22} color="#8B5CF6" />
+              Family Lifecycle Operations
+            </div>
+            <p className={styles.governanceSubtitle}>
+              Manage family structure changes — split, merge, transfer members, or change head of family.
+            </p>
+          </div>
+        </div>
+        <div className={styles.eventPresetsGrid}>
+          <div className={styles.presetCard} onClick={() => {
+            const memberIds = prompt('Enter member IDs to move (comma-separated MongoDB _ids):');
+            const reason = prompt('Reason for split:');
+            if (memberIds && reason) {
+              familyService.splitFamily(activeFamilyId, {
+                memberIds: memberIds.split(',').map(s => s.trim()),
+                reason,
+              }).then(() => {
+                qc.invalidateQueries({ queryKey: ['family', familyId] });
+                setSuccessToast('Family split successful! New family created.');
+                setTimeout(() => setSuccessToast(''), 6000);
+              }).catch(e => alert(e?.response?.data?.message || 'Split failed'));
+            }
+          }}>
+            <div className={styles.presetTitle}>
+              <span style={{ fontSize: '1.4rem' }}>✂️</span> Split Family
+            </div>
+            <p className={styles.presetDesc}>Move selected members to a new family</p>
+          </div>
+
+          <div className={styles.presetCard} onClick={() => {
+            const mergeFamilyId = prompt('Enter Family ID to merge into this family (e.g., GJ-XXXXXXXX):');
+            const reason = prompt('Reason for merge:');
+            if (mergeFamilyId && reason) {
+              familyService.mergeFamily(activeFamilyId, { mergeFamilyId, reason })
+                .then(() => {
+                  qc.invalidateQueries({ queryKey: ['family', familyId] });
+                  setSuccessToast('Family merged successfully!');
+                  setTimeout(() => setSuccessToast(''), 6000);
+                }).catch(e => alert(e?.response?.data?.message || 'Merge failed'));
+            }
+          }}>
+            <div className={styles.presetTitle}>
+              <span style={{ fontSize: '1.4rem' }}>🔗</span> Merge Family
+            </div>
+            <p className={styles.presetDesc}>Absorb another family into this one</p>
+          </div>
+
+          <div className={styles.presetCard} onClick={() => {
+            const memberId = prompt('Enter member ID to transfer:');
+            const destFamilyId = prompt('Enter destination Family ID:');
+            const reason = prompt('Reason (e.g., Marriage):');
+            if (memberId && destFamilyId) {
+              familyService.transferMember(activeFamilyId, memberId, { destinationFamilyId: destFamilyId, reason })
+                .then(() => {
+                  qc.invalidateQueries({ queryKey: ['family', familyId] });
+                  setSuccessToast('Member transferred successfully!');
+                  setTimeout(() => setSuccessToast(''), 6000);
+                }).catch(e => alert(e?.response?.data?.message || 'Transfer failed'));
+            }
+          }}>
+            <div className={styles.presetTitle}>
+              <span style={{ fontSize: '1.4rem' }}>🔄</span> Transfer Member
+            </div>
+            <p className={styles.presetDesc}>Move a member to another family</p>
+          </div>
+
+          <div className={styles.presetCard} onClick={() => {
+            if (!members.length) return alert('No members found');
+            const activeMembers = members.filter(m => m.lifecycleStatus === 'Active' && m.relationToHead !== 'Self');
+            if (!activeMembers.length) return alert('No other active members available');
+            const choices = activeMembers.map(m => `${m.memberId} (${m.name})`).join('\n');
+            const newHeadId = prompt(`Select new head of family:\n${choices}\n\nEnter member ID:`);
+            if (newHeadId) {
+              familyService.changeHead(activeFamilyId, { newHeadMemberId: newHeadId, reason: 'Succession' })
+                .then(() => {
+                  qc.invalidateQueries({ queryKey: ['family', familyId] });
+                  setSuccessToast('Head of family changed successfully!');
+                  setTimeout(() => setSuccessToast(''), 6000);
+                }).catch(e => alert(e?.response?.data?.message || 'Change head failed'));
+            }
+          }}>
+            <div className={styles.presetTitle}>
+              <span style={{ fontSize: '1.4rem' }}>👑</span> Change Head
+            </div>
+            <p className={styles.presetDesc}>Succession — appoint new head of family</p>
+          </div>
+        </div>
+
+        {/* Split & Merge History */}
+        {(family?.splitHistory?.length > 0 || family?.mergeHistory?.length > 0) && (
+          <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(139,92,246,0.06)', borderRadius: 12 }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#8B5CF6', marginBottom: '0.5rem' }}>
+              📜 Family Lifecycle History
+            </h3>
+            {family.splitHistory?.map((s, i) => (
+              <p key={`split-${i}`} style={{ fontSize: '0.8rem', color: '#6B7280', margin: '4px 0' }}>
+                ✂️ Split on {new Date(s.splitDate).toLocaleDateString('en-IN')} — {s.movedMemberIds?.length || 0} members moved. Reason: {s.reason || '—'}
+              </p>
+            ))}
+            {family.mergeHistory?.map((m, i) => (
+              <p key={`merge-${i}`} style={{ fontSize: '0.8rem', color: '#6B7280', margin: '4px 0' }}>
+                🔗 Merged {m.mergedFamilyCode || 'family'} on {new Date(m.mergeDate).toLocaleDateString('en-IN')} — {m.absorbedMemberIds?.length || 0} members absorbed. Reason: {m.reason || '—'}
+              </p>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* ── Household Members ───────────────────────────── */}
       <div className={styles.membersSection}>
         <div className={styles.sectionHeader}>

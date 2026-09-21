@@ -473,3 +473,127 @@
   .docGrid { grid-template-columns: 1fr; }
 }
 
+/* ── Phase 3: Member Filter Tabs & DigiLocker Badges ─────────── */
+.memberFilterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: var(--space-4);
+}
+
+.memberFilterPill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #CBD5E1;
+  background: white;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memberFilterPill:hover {
+  border-color: #94A3B8;
+  background: #F8FAFC;
+}
+
+.memberFilterPillActive {
+  background: #0F172A;
+  color: white;
+  border-color: #0F172A;
+}
+
+.digiLockerBtn {
+  background: linear-gradient(135deg, #0284C7, #0369A1) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.digiLockerBtn:hover {
+  background: linear-gradient(135deg, #0369A1, #075985) !important;
+}
+
+.digiSourceBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #E0F2FE;
+  color: #0284C7;
+  border: 1px solid #BAE6FD;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.expiredBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.renewBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #D97706;
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.renewBtn:hover {
+  background: #FDE68A;
+}
+
+.digiDocCard {
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.15s ease;
+}
+
+.digiDocCard:hover {
+  border-color: #38BDF8;
+  background: #F0F9FF;
+}
+
+.digiDocCardSelected {
+  border-color: #0284C7;
+  background: #F0F9FF;
+}
+
+.completenessBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #ECFDF5, #F0FDF4);
+  border: 1px solid #A7F3D0;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+

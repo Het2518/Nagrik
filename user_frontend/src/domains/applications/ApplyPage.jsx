@@ -205,6 +205,13 @@ export default function ApplyPage() {
     enabled: !!familyId,
   });
 
+  // Query Backend Evidence Matching API (Phase 3 Reusable Evidence)
+  const { data: matchReport } = useQuery({
+    queryKey: ['evidenceMatch', familyId, schemeCode],
+    queryFn: () => familyService.matchScheme(familyId, schemeCode),
+    enabled: !!familyId && !!schemeCode,
+  });
+
   const scheme = schemeData?.scheme || schemeData;
   const members = familyData?.members?.filter((m) => m.lifecycleStatus === 'Active') || [];
   const requiredDocs = scheme?.requiredDocuments || [];
@@ -213,34 +220,56 @@ export default function ApplyPage() {
 
   // Auto-Match and Pre-Fill Documents from Family Evidence Locker!
   useEffect(() => {
-    if (!requiredDocs.length || !evidenceList.length) return;
+    if (!requiredDocs.length) return;
 
     setUploadedDocs((prev) => {
       const updated = { ...prev };
       let changed = false;
 
-      for (const doc of requiredDocs) {
-        if (!updated[doc.docKey]) {
-          const match = matchLockerDoc(doc.docKey, evidenceList);
-          if (match) {
-            updated[doc.docKey] = {
-              docKey: doc.docKey,
-              originalName: `${match.certificateType} Certificate (${match.certificateNumber})`,
-              certificateNumber: match.certificateNumber,
-              issuingAuthority: match.issuingAuthority,
-              issueDate: match.issueDate,
+      // First check backend matched report
+      if (matchReport?.matched?.length > 0) {
+        for (const m of matchReport.matched) {
+          if (!updated[m.docKey]) {
+            updated[m.docKey] = {
+              docKey: m.docKey,
+              originalName: `${m.certificateType} Certificate (${m.certificateNumber})`,
+              certificateNumber: m.certificateNumber,
+              issuingAuthority: m.issuingAuthority,
+              issueDate: m.issueDate,
               reusedFromLocker: true,
-              isVerified: match.isVerified,
-              url: match.docUrl || 'locker://reusable-evidence',
+              isVerified: true,
+              url: m.docUrl || 'locker://reusable-evidence',
             };
             changed = true;
           }
         }
       }
 
+      // Then check fallback local matcher
+      if (evidenceList.length > 0) {
+        for (const doc of requiredDocs) {
+          if (!updated[doc.docKey]) {
+            const match = matchLockerDoc(doc.docKey, evidenceList);
+            if (match) {
+              updated[doc.docKey] = {
+                docKey: doc.docKey,
+                originalName: `${match.certificateType} Certificate (${match.certificateNumber})`,
+                certificateNumber: match.certificateNumber,
+                issuingAuthority: match.issuingAuthority,
+                issueDate: match.issueDate,
+                reusedFromLocker: true,
+                isVerified: match.isVerified,
+                url: match.docUrl || 'locker://reusable-evidence',
+              };
+              changed = true;
+            }
+          }
+        }
+      }
+
       return changed ? updated : prev;
     });
-  }, [requiredDocs, evidenceList]);
+  }, [requiredDocs, evidenceList, matchReport]);
 
   // Form Hooks
   const { register, handleSubmit, getValues, formState: { errors } } = useForm();
@@ -352,6 +381,61 @@ export default function ApplyPage() {
 
       {submitError && (
         <div className={styles.errorBanner} role="alert">{submitError}</div>
+      )}
+
+      {/* ── 1-Click Fast-Track Banner ──────────────────── */}
+      {matchReport?.canFastTrack && (
+        <div style={{
+          background: 'linear-gradient(135deg, #ECFDF5, #F0FDF4)',
+          border: '1.5px solid #10B981',
+          borderRadius: 14,
+          padding: '16px 20px',
+          marginBottom: 'var(--space-4)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: '#D1FAE5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#059669',
+              flexShrink: 0
+            }}>
+              <Sparkles size={22} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#065F46' }}>
+                ⚡ 1-Click Fast-Track Application Available!
+              </h3>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: '#047857' }}>
+                100% of required evidence ({matchReport.matchedCount} of {matchReport.totalRequired} documents) is pre-verified in your Family Locker.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="primary"
+            size="md"
+            style={{ background: '#059669', borderColor: '#059669' }}
+            loading={submitting}
+            onClick={() => {
+              if (!selectedMemberId && members.length > 0) {
+                setSelectedMemberId(members[0]._id);
+              }
+              handleFinalSubmit();
+            }}
+          >
+            ⚡ Instant 1-Click Submit
+          </Button>
+        </div>
       )}
 
       <Card className={styles.stepCard}>

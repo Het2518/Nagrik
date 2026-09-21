@@ -5,6 +5,8 @@ const { logAction } = require('../services/auditLogService');
 const { sendSuccess, createApiError } = require('../utils/apiResponse');
 const saturationAnalyticsService = require('../services/saturationAnalyticsService');
 const cronService = require('../services/cronService');
+const schemeVersioningService = require('../services/schemeVersioningService');
+const socialRegistryService = require('../services/socialRegistryService');
 
 // Fields a citizen is allowed to see — internal officer checklist config is excluded
 const CITIZEN_PROJECTION = 'schemeCode schemeName department benefitType maxBenefitAmount benefitFrequency applicationDeadline eligibilityRules requiredDocuments applicationFormFields isActive';
@@ -21,6 +23,12 @@ const WRITABLE_FIELDS = [
   'requiredDocuments',
   'applicationFormFields',
   'levelChecklistAdditions',
+  'targetGroup',
+  'stackingRules',
+  'geographicRestrictions',
+  'budgetInfo',
+  'renewalRules',
+  'renewalPeriodMonths',
   'isActive',
 ];
 
@@ -242,6 +250,80 @@ const triggerSchemeCron = async (req, res, next) => {
   }
 };
 
+// ─── POST /api/v1/schemes/:schemeCode/version ────────────────────────────────
+const createSchemeVersion = async (req, res, next) => {
+  try {
+    const { updates, reason } = req.body;
+    const author = req.user?.name || req.user?.username || 'Admin';
+    const scheme = await schemeVersioningService.createSchemeVersion(
+      req.params.schemeCode,
+      updates || req.body,
+      reason,
+      author
+    );
+    sendSuccess(res, { scheme, message: `Created version ${scheme.version} for ${scheme.schemeCode}` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/v1/schemes/:schemeCode/versions ────────────────────────────────
+const getSchemeHistory = async (req, res, next) => {
+  try {
+    const history = await schemeVersioningService.getSchemeHistory(req.params.schemeCode);
+    sendSuccess(res, history);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── POST /api/v1/schemes/:schemeCode/rollback/:version ──────────────────────
+const rollbackSchemeVersion = async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const author = req.user?.name || req.user?.username || 'Admin';
+    const scheme = await schemeVersioningService.rollbackSchemeVersion(
+      req.params.schemeCode,
+      req.params.version,
+      reason,
+      author
+    );
+    sendSuccess(res, { scheme, message: `Rolled back to version ${req.params.version}. New active version: ${scheme.version}` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/v1/schemes/social-registry/overview ─────────────────────────────
+const getSocialRegistryOverview = async (req, res, next) => {
+  try {
+    const overview = await socialRegistryService.getRegistryOverview(req.query);
+    sendSuccess(res, overview);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── POST /api/v1/schemes/social-registry/recalculate ─────────────────────────
+const recalculateSocialRegistry = async (req, res, next) => {
+  try {
+    const results = await socialRegistryService.batchRecalculate(req.body);
+    sendSuccess(res, results);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/v1/schemes/social-registry/family/:familyId ────────────────────
+const getFamilySocialRegistry = async (req, res, next) => {
+  try {
+    const entry = await socialRegistryService.computeDeprivationScore(req.params.familyId);
+    sendSuccess(res, { socialRegistry: entry });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   listSchemes,
   getSchemeByCode,
@@ -251,4 +333,10 @@ module.exports = {
   getSchemeBeneficiaries,
   nudgeBeneficiary,
   triggerSchemeCron,
+  createSchemeVersion,
+  getSchemeHistory,
+  rollbackSchemeVersion,
+  getSocialRegistryOverview,
+  recalculateSocialRegistry,
+  getFamilySocialRegistry,
 };

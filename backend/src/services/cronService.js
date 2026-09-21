@@ -5,8 +5,11 @@ const Member = require('../models/Member');
 const Scheme = require('../models/Scheme');
 const Notification = require('../models/Notification');
 const LifeEvent = require('../models/LifeEvent');
+const BenefitEntitlement = require('../models/BenefitEntitlement');
 const reusableEvidenceService = require('./reusableEvidenceService');
 const saturationAnalyticsService = require('./saturationAnalyticsService');
+const slaService = require('./slaService');
+const socialRegistryService = require('./socialRegistryService');
 const { checkEligibility } = require('./eligibilityEngine');
 const { logAction } = require('./auditLogService');
 
@@ -168,6 +171,64 @@ class CronService {
         }
       }
 
+      // 3. Automated SLA Breach Checks & Auto-Escalation (Req 54-55)
+      try {
+        const slaBreachReport = await slaService.checkSLABreaches();
+        report.slaBreachesDetected = slaBreachReport.breachedCount || 0;
+      } catch (err) {
+        console.error('[CronService] SLA breach scan error:', err.message);
+      }
+
+      // 4. Benefit Renewal Reminders (< 30 days) (Req 71-72)
+      try {
+        const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const expiringEntitlements = await BenefitEntitlement.find({
+          lifecycleState: { $in: ['Approved', 'Sanctioned', 'Active', 'Disbursed'] },
+          renewalDate: { $gte: now, $lte: thirtyDaysAhead },
+        }).populate('familyId');
+
+        report.expiringBenefitsCount = expiringEntitlements.length;
+
+        for (const benefit of expiringEntitlements) {
+          const fid = benefit.familyId?._id || benefit.familyId;
+          if (!fid) continue;
+
+          const recentRenewalNotif = await Notification.findOne({
+            familyId: fid,
+            type: 'BenefitRenewal',
+            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          });
+
+          if (!recentRenewalNotif) {
+            const daysLeft = Math.max(1, Math.ceil((new Date(benefit.renewalDate) - now) / (1000 * 60 * 60 * 24)));
+            await Notification.create({
+              familyId: fid,
+              type: 'BenefitRenewal',
+              category: 'BenefitRenewal',
+              priority: daysLeft <= 7 ? 'Critical' : 'High',
+              actionRequired: true,
+              titleEn: `Benefit Renewal Due: ${benefit.schemeName}`,
+              titleGu: `સહાય રિન્યુઅલ સૂચના: ${benefit.schemeName}`,
+              messageEn: `Your entitlement for ${benefit.schemeName} (${benefit.benefitId}) is due for annual renewal in ${daysLeft} days. Submit verification documents to ensure uninterrupted DBT disbursements.`,
+              messageGu: `તમારી ${benefit.schemeName} સહાયનું વાર્ષિક રિન્યુઅલ ${daysLeft} દિવસમાં બાકી છે. સહાય ચાલુ રાખવા માટે સમયસર રિન્યૂ કરો.`,
+              nextActionUrl: `/schemes/${benefit.schemeCode}`,
+              expiresAt: new Date(benefit.renewalDate),
+            });
+            report.notificationsDispatched++;
+          }
+        }
+      } catch (err) {
+        console.error('[CronService] Benefit renewal scan error:', err.message);
+      }
+
+      // 5. Batch Recalculate Social Registry Deprivation Scores (Req 14)
+      try {
+        const regReport = await socialRegistryService.batchRecalculate({});
+        report.deprivationScoresRecalculated = regReport.processed || 0;
+      } catch (err) {
+        console.error('[CronService] Social registry recalculation error:', err.message);
+      }
+
       report.durationMs = Date.now() - startTime;
 
       await logAction({
@@ -183,6 +244,20 @@ class CronService {
     } finally {
       this.isRunning = false;
     }
+  }
+
+  /**
+   * Standalone SLA breach check for API / CLI triggers.
+   */
+  async runSLABreachCheck() {
+    return slaService.checkSLABreaches();
+  }
+
+  /**
+   * Standalone deprivation score batch update.
+   */
+  async runDeprivationRecalculation(filters = {}) {
+    return socialRegistryService.batchRecalculate(filters);
   }
 
   /**

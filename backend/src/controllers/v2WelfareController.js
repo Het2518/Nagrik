@@ -12,6 +12,7 @@ const benefitGapDetector = require('../services/benefitGapDetector');
 const reusableEvidenceService = require('../services/reusableEvidenceService');
 const lifeEventEngine = require('../services/lifeEventEngine');
 const riskIntelligenceService = require('../services/riskIntelligenceService');
+const cronService = require('../services/cronService');
 const { getConnectorsStatus } = require('../integrations');
 const { sendSuccess, createApiError } = require('../utils/apiResponse');
 
@@ -302,8 +303,18 @@ const getNotifications = async (req, res, next) => {
     if (req.user?.familyId) query.familyId = req.user.familyId;
     if (req.user?._id) query.userId = req.user._id;
 
-    const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(20).lean();
-    sendSuccess(res, { notifications });
+    if (req.query.category) query.category = req.query.category;
+    if (req.query.priority) query.priority = req.query.priority;
+    if (req.query.isRead !== undefined) query.isRead = req.query.isRead === 'true';
+    if (req.query.actionRequired !== undefined) query.actionRequired = req.query.actionRequired === 'true';
+
+    const [notifications, unreadCount, totalCount] = await Promise.all([
+      Notification.find(query).sort({ createdAt: -1 }).limit(50).lean(),
+      Notification.countDocuments({ ...query, isRead: false }),
+      Notification.countDocuments(query),
+    ]);
+
+    sendSuccess(res, { notifications, unreadCount, totalCount });
   } catch (err) {
     next(err);
   }
@@ -314,6 +325,63 @@ const markNotificationRead = async (req, res, next) => {
   try {
     await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
     sendSuccess(res, { success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/v1/notifications/read-all
+const markAllNotificationsRead = async (req, res, next) => {
+  try {
+    const query = {};
+    if (req.user?.familyId) query.familyId = req.user.familyId;
+    if (req.user?._id) query.userId = req.user._id;
+
+    const result = await Notification.updateMany({ ...query, isRead: false }, { isRead: true });
+    sendSuccess(res, { success: true, updatedCount: result.modifiedCount });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/v1/analytics/geographic-saturation
+const getGeographicSaturation = async (req, res, next) => {
+  try {
+    const { district, taluka } = req.query;
+    const saturation = await benefitGapDetector.getGeographicSaturation(district, taluka);
+    sendSuccess(res, saturation);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/v1/analytics/priority-families
+const getHighPriorityFamilies = async (req, res, next) => {
+  try {
+    const limit = Number(req.query.limit) || 10;
+    const { district, taluka } = req.query;
+    const families = await benefitGapDetector.identifyHighPriorityFamilies(limit, { district, taluka });
+    sendSuccess(res, { count: families.length, priorityFamilies: families });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/cron/trigger
+const triggerCronJob = async (req, res, next) => {
+  try {
+    const { job = 'milestones' } = req.body;
+    let result = {};
+
+    if (job === 'sla') {
+      result = await cronService.runSLABreachCheck();
+    } else if (job === 'deprivation') {
+      result = await cronService.runDeprivationRecalculation({});
+    } else {
+      result = await cronService.runAllMilestoneChecks();
+    }
+
+    sendSuccess(res, { message: `Cron job '${job}' executed successfully`, result });
   } catch (err) {
     next(err);
   }
@@ -344,5 +412,9 @@ module.exports = {
   getRiskSignals,
   getNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
+  getGeographicSaturation,
+  getHighPriorityFamilies,
+  triggerCronJob,
   getIntegrationsStatus,
 };

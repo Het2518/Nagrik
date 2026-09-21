@@ -9,6 +9,7 @@ const { sendSuccess, createApiError } = require('../utils/apiResponse');
 const lifecycleTriggerService = require('../services/lifecycleTriggerService');
 const DocumentReference = require('../models/DocumentReference');
 const reusableEvidenceService = require('../services/reusableEvidenceService');
+const digiLockerService = require('../services/digiLockerService');
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 
@@ -52,6 +53,9 @@ const registerFamily = async (req, res, next) => {
     family.headOfFamilyMemberId = headMember._id;
     await family.save();
 
+    await recalculateFamilyComposition(family._id);
+    const updatedFamily = await Family.findById(family._id);
+
     await CitizenUser.findByIdAndUpdate(req.user.id, { familyId: family._id });
 
     await logAction({
@@ -62,7 +66,7 @@ const registerFamily = async (req, res, next) => {
       entityId: family.familyId,
     });
 
-    sendSuccess(res, { familyId: family.familyId, family, headMember }, 201);
+    sendSuccess(res, { familyId: family.familyId, family: updatedFamily, headMember }, 201);
   } catch (err) {
     next(err);
   }
@@ -96,7 +100,10 @@ const updateFamilyProfile = async (req, res, next) => {
       return next(createApiError(403, 'You can only update your own family profile'));
     }
 
-    const allowedFields = ['annualIncome', 'rationCardNumber', 'rationCardType', 'address', 'bplStatus', 'hasPuccaHouse'];
+    const allowedFields = [
+      'annualIncome', 'rationCardNumber', 'rationCardType', 'address', 'bplStatus', 'hasPuccaHouse',
+      'familyType', 'socioeconomic', 'household',
+    ];
     const updates = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
@@ -357,6 +364,7 @@ const updateMemberProfile = async (req, res, next) => {
     const allowedFields = [
       'name', 'dateOfBirth', 'gender', 'mobileNumber', 'occupation',
       'maritalStatus', 'hasDisability', 'disabilityPercentage', 'isStudent', 'educationLevel',
+      'healthStatus', 'skills', 'bankDetails',
     ];
     const previousValues = {};
     for (const field of allowedFields) {
@@ -531,16 +539,27 @@ const verifyFamilyDocument = async (req, res, next) => {
     const doc = await DocumentReference.findOne({ certificateNumber: certNum });
     if (!doc) return next(createApiError(404, 'Document reference not found'));
 
-    doc.isVerifiedByOfficer = true;
+    const action = req.body.action === 'Reject' ? 'Reject' : 'Approve';
+    const isApproved = action === 'Approve';
+
+    doc.isVerifiedByOfficer = isApproved;
+    doc.status = isApproved ? 'Verified' : 'Rejected';
+    doc.verificationHistory = doc.verificationHistory || [];
+    doc.verificationHistory.push({
+      verifiedBy: `${req.user.name || req.user.role} (${req.user.role})`,
+      verifiedAt: new Date(),
+      action: isApproved ? 'Verified' : 'Rejected',
+      remarks: req.body.remarks || (isApproved ? 'Officer verification confirmed' : 'Document rejected upon scrutiny'),
+    });
     await doc.save();
 
     await logAction({
-      action: 'FAMILY_DOCUMENT_VERIFIED',
+      action: isApproved ? 'FAMILY_DOCUMENT_VERIFIED' : 'FAMILY_DOCUMENT_REJECTED',
       actorId: req.user.id,
       actorRole: req.user.role,
       entityType: 'DocumentReference',
       entityId: doc.certificateNumber,
-      changedFields: { isVerifiedByOfficer: true, familyId: family.familyId },
+      changedFields: { isVerifiedByOfficer: isApproved, status: doc.status, familyId: family.familyId },
     });
 
     // Re-evaluate family scheme eligibility in background
@@ -550,7 +569,7 @@ const verifyFamilyDocument = async (req, res, next) => {
       certificateType: doc.certificateType,
     }).catch((e) => console.error('[Lifecycle] Error re-evaluating doc verify:', e?.message));
 
-    sendSuccess(res, { message: 'Document verified successfully', document: doc });
+    sendSuccess(res, { message: `Document ${isApproved ? 'verified' : 'rejected'} successfully`, document: doc });
   } catch (err) {
     next(err);
   }
@@ -605,6 +624,472 @@ const deleteFamilyDocument = async (req, res, next) => {
   }
 };
 
+// ── Phase 3 — Document & Evidence Operations ─────────────────────────────
+
+// GET /api/v1/families/:familyId/evidence/completeness
+const getEvidenceCompleteness = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+    const report = await reusableEvidenceService.checkEvidenceCompleteness(family._id);
+    sendSuccess(res, report);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/v1/families/:familyId/evidence/match-scheme/:schemeCode
+const matchEvidenceToScheme = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+    const match = await reusableEvidenceService.matchEvidenceToScheme(family._id, req.params.schemeCode);
+    sendSuccess(res, match);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/families/:familyId/evidence/:docId/renew
+const renewFamilyDocument = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+    const result = await reusableEvidenceService.renewDocument(req.params.docId, req.body, req.user?.id);
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/v1/families/:familyId/digilocker/available
+const fetchDigiLockerDocs = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+    const member = req.query.memberId ? await Member.findById(req.query.memberId) : await Member.findById(family.headOfFamilyMemberId);
+    const docs = await digiLockerService.fetchAvailableDigiLockerDocs(member?.aadhaarEncrypted, member?.name);
+    sendSuccess(res, { availableDocuments: docs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/families/:familyId/digilocker/import
+const importDigiLockerDocs = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+    const { memberId, docTypes } = req.body;
+    const docs = await digiLockerService.importToEvidenceLocker(family._id, memberId, docTypes, req.user?.id);
+    sendSuccess(res, { importedDocuments: docs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ══ Phase 1 — Family Lifecycle Operations ══════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Helper: recalculate family composition from its member roster
+async function recalculateFamilyComposition(familyObjectId) {
+  const members = await Member.find({ familyId: familyObjectId, lifecycleStatus: 'Active' });
+  const now = new Date();
+
+  const composition = {
+    totalMembers: members.length,
+    activeMembers: members.length,
+    earningMembers: 0,
+    dependentMembers: 0,
+    seniorCitizens: 0,
+    children: 0,
+    women: 0,
+    disabledMembers: 0,
+    students: 0,
+  };
+
+  for (const m of members) {
+    // Calculate age
+    let age = 0;
+    if (m.dateOfBirth) {
+      age = now.getFullYear() - m.dateOfBirth.getFullYear();
+      const monthDiff = now.getMonth() - m.dateOfBirth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < m.dateOfBirth.getDate())) age--;
+    }
+
+    if (age >= 60) composition.seniorCitizens++;
+    if (age < 18) composition.children++;
+    if (m.gender === 'Female') composition.women++;
+    if (m.hasDisability) composition.disabledMembers++;
+    if (m.isStudent) composition.students++;
+    if (m.occupation && m.occupation !== 'Unemployed' && age >= 18) {
+      composition.earningMembers++;
+    }
+  }
+  composition.dependentMembers = composition.totalMembers - composition.earningMembers;
+
+  await Family.findByIdAndUpdate(familyObjectId, { familyComposition: composition });
+  return composition;
+};
+
+// POST /api/v1/families/:familyId/split — Split family by moving selected members to a new family
+const splitFamily = async (req, res, next) => {
+  try {
+    const { memberIds, reason, newFamilyDetails } = req.body;
+    if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+      return next(createApiError(400, 'memberIds array is required (at least one member to split off)'));
+    }
+
+    const sourceFamily = await findFamily(req.params.familyId);
+    if (!sourceFamily) return next(createApiError(404, 'Source family not found'));
+
+    // Verify all members belong to the source family
+    const membersToMove = await Member.find({
+      _id: { $in: memberIds },
+      familyId: sourceFamily._id,
+      lifecycleStatus: 'Active',
+    });
+    if (membersToMove.length !== memberIds.length) {
+      return next(createApiError(400, 'Some member IDs are invalid or do not belong to this family'));
+    }
+
+    // Cannot move the head if other members remain
+    const remainingMembers = await Member.find({
+      familyId: sourceFamily._id,
+      lifecycleStatus: 'Active',
+      _id: { $nin: memberIds },
+    });
+    if (remainingMembers.length === 0) {
+      return next(createApiError(400, 'Cannot split all members — at least one must remain in the original family'));
+    }
+
+    // Create the new family — inherit core socioeconomic data from source
+    const newFamily = await Family.create({
+      annualIncome: newFamilyDetails?.annualIncome || sourceFamily.annualIncome,
+      category: sourceFamily.category,
+      bplStatus: sourceFamily.bplStatus,
+      address: newFamilyDetails?.address || sourceFamily.address,
+      familyType: newFamilyDetails?.familyType || 'Nuclear',
+      socioeconomic: sourceFamily.socioeconomic,
+      household: newFamilyDetails?.household || sourceFamily.household,
+      previousFamilyIds: [sourceFamily._id],
+      createdByUserId: sourceFamily.createdByUserId,
+    });
+
+    // Move members to new family
+    await Member.updateMany(
+      { _id: { $in: memberIds } },
+      { $set: { familyId: newFamily._id, previousFamilyId: sourceFamily._id } }
+    );
+
+    // Set head of new family (first member with relationToHead 'Self', or first member)
+    const newHead = membersToMove.find(m => m.relationToHead === 'Self') || membersToMove[0];
+    newFamily.headOfFamilyMemberId = newHead._id;
+    await newFamily.save();
+
+    // Record split history on source family
+    sourceFamily.splitHistory.push({
+      newFamilyId: newFamily._id,
+      movedMemberIds: memberIds,
+      reason: reason || 'Family Split',
+      approvedBy: req.user.role !== 'Citizen' ? req.user.id : null,
+    });
+
+    // If head was moved, re-assign head in source family
+    if (memberIds.includes(sourceFamily.headOfFamilyMemberId?.toString())) {
+      sourceFamily.headOfFamilyMemberId = remainingMembers[0]._id;
+    }
+    await sourceFamily.save();
+
+    // Recalculate composition for both families
+    await Promise.all([
+      recalculateFamilyComposition(sourceFamily._id),
+      recalculateFamilyComposition(newFamily._id),
+    ]);
+
+    // Create LifeEvent
+    const LifeEvent = require('../models/LifeEvent');
+    await LifeEvent.create({
+      eventType: 'FamilySplit',
+      affectedFamilyId: sourceFamily._id,
+      source: req.user.role === 'Citizen' ? 'CitizenReported' : 'OfficerRecorded',
+      details: { newFamilyId: newFamily.familyId, movedCount: memberIds.length, reason },
+      verificationStatus: req.user.role !== 'Citizen' ? 'Verified' : 'PendingVerification',
+      recordedBy: req.user.id,
+      recordedByRole: req.user.role,
+    });
+
+    await logAction({
+      action: 'FAMILY_SPLIT',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'Family',
+      entityId: sourceFamily.familyId,
+      changedFields: { newFamilyId: newFamily.familyId, movedMembers: memberIds.length },
+    });
+
+    sendSuccess(res, {
+      sourceFamilyId: sourceFamily.familyId,
+      newFamilyId: newFamily.familyId,
+      newFamily,
+      movedMembers: membersToMove.map(m => m.memberId),
+    }, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/families/:familyId/merge — Merge another family into this one
+const mergeFamily = async (req, res, next) => {
+  try {
+    const { mergeFamilyId, reason } = req.body;
+    if (!mergeFamilyId) {
+      return next(createApiError(400, 'mergeFamilyId is required'));
+    }
+
+    const targetFamily = await findFamily(req.params.familyId);
+    if (!targetFamily) return next(createApiError(404, 'Target family not found'));
+
+    const sourceFamily = await findFamily(mergeFamilyId);
+    if (!sourceFamily) return next(createApiError(404, 'Source family to merge not found'));
+
+    if (targetFamily._id.toString() === sourceFamily._id.toString()) {
+      return next(createApiError(400, 'Cannot merge a family into itself'));
+    }
+
+    // Move all active members from source to target
+    const membersToAbsorb = await Member.find({
+      familyId: sourceFamily._id,
+      lifecycleStatus: 'Active',
+    });
+
+    const absorbedMemberIds = membersToAbsorb.map(m => m._id);
+    await Member.updateMany(
+      { _id: { $in: absorbedMemberIds } },
+      { $set: { familyId: targetFamily._id, previousFamilyId: sourceFamily._id } }
+    );
+
+    // Record merge history on target family
+    targetFamily.mergeHistory.push({
+      mergedFamilyId: sourceFamily._id,
+      mergedFamilyCode: sourceFamily.familyId,
+      absorbedMemberIds,
+      reason: reason || 'Family Merge',
+      approvedBy: req.user.role !== 'Citizen' ? req.user.id : null,
+    });
+    targetFamily.previousFamilyIds.push(sourceFamily._id);
+    await targetFamily.save();
+
+    // Mark source family as Merged
+    sourceFamily.status = 'Merged';
+    await sourceFamily.save();
+
+    // Recalculate target family composition
+    await recalculateFamilyComposition(targetFamily._id);
+
+    // Create LifeEvent
+    const LifeEvent = require('../models/LifeEvent');
+    await LifeEvent.create({
+      eventType: 'FamilyMerge',
+      affectedFamilyId: targetFamily._id,
+      source: req.user.role === 'Citizen' ? 'CitizenReported' : 'OfficerRecorded',
+      details: { mergedFamilyCode: sourceFamily.familyId, absorbedCount: absorbedMemberIds.length, reason },
+      verificationStatus: req.user.role !== 'Citizen' ? 'Verified' : 'PendingVerification',
+      recordedBy: req.user.id,
+      recordedByRole: req.user.role,
+    });
+
+    await logAction({
+      action: 'FAMILY_MERGED',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'Family',
+      entityId: targetFamily.familyId,
+      changedFields: { mergedFrom: sourceFamily.familyId, absorbedMembers: absorbedMemberIds.length },
+    });
+
+    sendSuccess(res, {
+      targetFamilyId: targetFamily.familyId,
+      mergedFamilyId: sourceFamily.familyId,
+      absorbedMembers: absorbedMemberIds.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/families/:familyId/members/:memberId/transfer — Move member to another family
+const transferMember = async (req, res, next) => {
+  try {
+    const { destinationFamilyId, reason } = req.body;
+    if (!destinationFamilyId) {
+      return next(createApiError(400, 'destinationFamilyId is required'));
+    }
+
+    const sourceFamily = await findFamily(req.params.familyId);
+    if (!sourceFamily) return next(createApiError(404, 'Source family not found'));
+
+    const destFamily = await findFamily(destinationFamilyId);
+    if (!destFamily) return next(createApiError(404, 'Destination family not found'));
+
+    const member = await Member.findOne({
+      $or: [
+        { _id: req.params.memberId.match(/^[0-9a-fA-F]{24}$/) ? req.params.memberId : null },
+        { memberId: req.params.memberId },
+      ],
+      familyId: sourceFamily._id,
+    });
+    if (!member) return next(createApiError(404, 'Member not found in source family'));
+
+    // Cannot transfer the only remaining active member
+    const remainingCount = await Member.countDocuments({
+      familyId: sourceFamily._id,
+      lifecycleStatus: 'Active',
+      _id: { $ne: member._id },
+    });
+    if (remainingCount === 0) {
+      return next(createApiError(400, 'Cannot transfer the last remaining member. Use merge instead.'));
+    }
+
+    // If transferring head, re-assign head in source family
+    if (sourceFamily.headOfFamilyMemberId?.toString() === member._id.toString()) {
+      const nextHead = await Member.findOne({
+        familyId: sourceFamily._id,
+        lifecycleStatus: 'Active',
+        _id: { $ne: member._id },
+      });
+      sourceFamily.headOfFamilyMemberId = nextHead._id;
+      await sourceFamily.save();
+    }
+
+    // Move member
+    member.previousFamilyId = sourceFamily._id;
+    member.familyId = destFamily._id;
+    member.transferHistory.push({
+      fromFamilyId: sourceFamily._id,
+      toFamilyId: destFamily._id,
+      reason: reason || 'Transfer',
+      approvedBy: req.user.role !== 'Citizen' ? req.user.id : null,
+    });
+    // Update relation to head in destination family
+    member.relationToHead = 'Other';
+    await member.save();
+
+    // Recalculate composition for both families
+    await Promise.all([
+      recalculateFamilyComposition(sourceFamily._id),
+      recalculateFamilyComposition(destFamily._id),
+    ]);
+
+    // Create LifeEvent
+    const LifeEvent = require('../models/LifeEvent');
+    await LifeEvent.create({
+      eventType: 'HouseholdCompositionChange',
+      affectedFamilyId: sourceFamily._id,
+      affectedMemberId: member._id,
+      source: req.user.role === 'Citizen' ? 'CitizenReported' : 'OfficerRecorded',
+      details: { type: 'MemberTransfer', to: destFamily.familyId, reason },
+      verificationStatus: req.user.role !== 'Citizen' ? 'Verified' : 'PendingVerification',
+      recordedBy: req.user.id,
+      recordedByRole: req.user.role,
+    });
+
+    await logAction({
+      action: 'MEMBER_TRANSFERRED',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'Member',
+      entityId: member.memberId,
+      changedFields: { from: sourceFamily.familyId, to: destFamily.familyId, reason },
+    });
+
+    // Re-evaluate eligibility for both families
+    lifecycleTriggerService.handleFamilyMutation(sourceFamily._id, 'MEMBER_TRANSFERRED_OUT', {
+      memberId: member._id, actorId: req.user.id, actorRole: req.user.role,
+    }).catch(e => console.error('[Lifecycle] Transfer out error:', e?.message));
+
+    lifecycleTriggerService.handleFamilyMutation(destFamily._id, 'MEMBER_TRANSFERRED_IN', {
+      memberId: member._id, actorId: req.user.id, actorRole: req.user.role,
+    }).catch(e => console.error('[Lifecycle] Transfer in error:', e?.message));
+
+    sendSuccess(res, {
+      memberId: member.memberId,
+      fromFamily: sourceFamily.familyId,
+      toFamily: destFamily.familyId,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/v1/families/:familyId/change-head — Head of family succession
+const changeHeadOfFamily = async (req, res, next) => {
+  try {
+    const { newHeadMemberId, reason } = req.body;
+    if (!newHeadMemberId) {
+      return next(createApiError(400, 'newHeadMemberId is required'));
+    }
+
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+
+    const newHead = await Member.findOne({
+      $or: [
+        { _id: newHeadMemberId.match(/^[0-9a-fA-F]{24}$/) ? newHeadMemberId : null },
+        { memberId: newHeadMemberId },
+      ],
+      familyId: family._id,
+      lifecycleStatus: 'Active',
+    });
+    if (!newHead) return next(createApiError(404, 'New head member not found or not active in this family'));
+
+    const previousHeadId = family.headOfFamilyMemberId;
+
+    // Update old head's relation
+    if (previousHeadId) {
+      await Member.findByIdAndUpdate(previousHeadId, { relationToHead: 'Other' });
+    }
+
+    // Set new head
+    family.headOfFamilyMemberId = newHead._id;
+    await family.save();
+
+    newHead.relationToHead = 'Self';
+    await newHead.save();
+
+    await logAction({
+      action: 'HEAD_OF_FAMILY_CHANGED',
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      entityType: 'Family',
+      entityId: family.familyId,
+      changedFields: { previousHeadId: previousHeadId?.toString(), newHeadId: newHead._id.toString(), reason },
+    });
+
+    sendSuccess(res, {
+      familyId: family.familyId,
+      newHeadMemberId: newHead.memberId,
+      newHeadName: newHead.name,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/v1/families/:familyId/recalculate — Recalculate family composition
+const recalculateCompositionEndpoint = async (req, res, next) => {
+  try {
+    const family = await findFamily(req.params.familyId);
+    if (!family) return next(createApiError(404, 'Family not found'));
+
+    const composition = await recalculateFamilyComposition(family._id);
+    sendSuccess(res, { familyId: family.familyId, composition });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   registerFamily,
   getFamilyProfile,
@@ -620,4 +1105,17 @@ module.exports = {
   addFamilyDocument,
   verifyFamilyDocument,
   deleteFamilyDocument,
+  // Phase 1 — Family Lifecycle
+  splitFamily,
+  mergeFamily,
+  transferMember,
+  changeHeadOfFamily,
+  recalculateCompositionEndpoint,
+  recalculateFamilyComposition,
+  // Phase 3 — Evidence & DigiLocker
+  getEvidenceCompleteness,
+  matchEvidenceToScheme,
+  renewFamilyDocument,
+  fetchDigiLockerDocs,
+  importDigiLockerDocs,
 };

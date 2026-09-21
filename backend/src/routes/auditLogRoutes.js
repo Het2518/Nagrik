@@ -3,9 +3,13 @@
 const router = require('express').Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
-const { getAuditLogs } = require('../controllers/auditLogController');
+const { getAuditLogs, getEntityTimeline, exportAuditLogs } = require('../controllers/auditLogController');
 
-// Admin-only — full audit trail visibility
-router.get('/', authenticate, requireRole('Admin'), getAuditLogs);
+// Admin and officer roles can inspect timeline / export
+router.use(authenticate);
+
+router.get('/export', requireRole('Admin', 'DistrictOfficer'), exportAuditLogs);
+router.get('/timeline/:entityId', requireRole('Admin', 'DistrictOfficer', 'Mamlatdar', 'Talati'), getEntityTimeline);
+router.get('/', requireRole('Admin', 'DistrictOfficer'), getAuditLogs);
 
 module.exports = router;

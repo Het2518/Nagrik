@@ -61,6 +61,33 @@ const memberSchema = new mongoose.Schema(
       }
     ],
     activeBenefitIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'BenefitEntitlement' }],
+
+    // ── Health Profile (Phase 1 — Req 3) ──────────────────────────────────
+    healthStatus: {
+      bloodGroup: {
+        type: String,
+        enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'],
+        default: 'Unknown',
+      },
+      chronicConditions:    { type: [String], default: [] }, // e.g. ['Diabetes', 'Hypertension']
+      immunizationComplete: { type: Boolean, default: false },
+    },
+
+    // ── Skills & Livelihood (Phase 1 — Req 5) ─────────────────────────────
+    skills: { type: [String], default: [] }, // e.g. ['Tailoring', 'Carpentry', 'IT']
+
+    // ── Transfer / Migration History (Phase 1 — Req 9, 11) ────────────────
+    previousFamilyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Family', default: null },
+    transferHistory: [
+      {
+        fromFamilyId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Family', required: true },
+        toFamilyId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Family', required: true },
+        date:          { type: Date, default: Date.now },
+        reason:        { type: String, default: '' },    // 'Marriage', 'Separation', 'Other'
+        approvedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'Officer', default: null },
+        _id: false,
+      }
+    ],
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

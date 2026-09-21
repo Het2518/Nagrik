@@ -180,3 +180,98 @@
 @media (max-width: 1000px) {
   .cols { grid-template-columns: 1fr; }
 }
+
+/* ── Phase 4: SLA Turnaround Bar & Clarification ─────────────── */
+.slaTracker {
+  background: white;
+  border: 1px solid #CBD5E1;
+  border-radius: var(--radius-xl);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.slaProgressWrap {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slaBarBg {
+  height: 8px;
+  background: #E2E8F0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.slaBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.clarifyModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.clarifyModal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalPop 0.2s ease-out;
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.clarifyHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #F8FAFC;
+}
+
+.clarifyHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.clarifyBody {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.clarifyFooter {
+  padding: 14px 20px;
+  border-top: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+

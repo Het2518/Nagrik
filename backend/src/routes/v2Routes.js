@@ -19,6 +19,10 @@ const {
   getRiskSignals,
   getNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
+  getGeographicSaturation,
+  getHighPriorityFamilies,
+  triggerCronJob,
   getIntegrationsStatus,
 } = require('../controllers/v2WelfareController');
 
@@ -39,7 +43,13 @@ router.post('/families/:id/simulate-life-event', simulateLifeEvent);
 
 router.post('/life-events', recordLifeEvent);
 router.get('/notifications', getNotifications);
+router.patch('/notifications/read-all', markAllNotificationsRead);
 router.patch('/notifications/:id/read', markNotificationRead);
+
+// ── Intelligence & Saturation Analytics ──────────────────────────────────────
+router.get('/analytics/geographic-saturation', getGeographicSaturation);
+router.get('/analytics/priority-families', getHighPriorityFamilies);
+router.post('/cron/trigger', requireRole('Talati', 'Mamlatdar', 'DistrictOfficer', 'Admin'), triggerCronJob);
 
 // ── Officer Case Management & Governance Routes ─────────────────────────────
 router.get(

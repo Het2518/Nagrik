@@ -26,9 +26,11 @@ export const v2WelfareService = {
   recordLifeEvent: (payload) => apiPost('/life-events', payload),
 
   // Citizen Notifications
-  getNotifications: () => apiGet('/notifications').then((d) => d?.notifications || []),
+  getNotifications: (params = {}) => apiGet('/notifications', params),
 
   markNotificationRead: (id) => apiPatch(`/notifications/${id}/read`),
+
+  markAllNotificationsRead: () => apiPatch('/notifications/read-all'),
 
   // Interoperability Connectors Status
   getConnectorsStatus: () => apiGet('/integrations/status'),

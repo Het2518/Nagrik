@@ -1,14 +1,17 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { Home, BookOpen, FileText, Users, User, LogOut, Bell } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { v2WelfareService } from '../../services/v2WelfareService';
 import styles from './AppLayout.module.css';
 
 const NAV_ITEMS = [
-  { path: '/home',         labelKey: 'nav.home',         icon: Home },
-  { path: '/schemes',      labelKey: 'nav.schemes',       icon: BookOpen },
-  { path: '/applications', labelKey: 'nav.applications',  icon: FileText },
-  { path: '/family',       labelKey: 'nav.family',        icon: Users },
+  { path: '/home',          labelKey: 'nav.home',          icon: Home },
+  { path: '/schemes',       labelKey: 'nav.schemes',        icon: BookOpen },
+  { path: '/applications',  labelKey: 'nav.applications',   icon: FileText },
+  { path: '/family',        labelKey: 'nav.family',         icon: Users },
+  { path: '/notifications', labelKey: 'nav.notifications',  icon: Bell },
 ];
 
 export default function AppLayout({ children }) {
@@ -16,6 +19,14 @@ export default function AppLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
+
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications-badge'],
+    queryFn: () => v2WelfareService.getNotifications({ isRead: false }),
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = notifData?.unreadCount ?? notifData?.notifications?.length ?? 0;
 
   const handleLogout = () => {
     logout();
@@ -49,7 +60,20 @@ export default function AppLayout({ children }) {
                 aria-current={location.pathname.startsWith(path) ? 'page' : undefined}
               >
                 <Icon size={20} aria-hidden="true" />
-                <span>{t(labelKey)}</span>
+                <span>{labelKey === 'nav.notifications' ? t(labelKey, 'Notifications') : t(labelKey)}</span>
+                {path === '/notifications' && unreadCount > 0 && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    background: 'var(--color-saffron-500)',
+                    color: 'white',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                  }}>
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -81,7 +105,29 @@ export default function AppLayout({ children }) {
             <span className={styles.topbarTitle}>Nagrik</span>
           </Link>
           <Link to="/notifications" className={styles.bellBtn} aria-label={t('nav.notifications')}>
-            <Bell size={22} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bell size={22} />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -4,
+                  right: -4,
+                  background: 'var(--color-saffron-500)',
+                  color: 'white',
+                  borderRadius: 999,
+                  minWidth: 16,
+                  height: 16,
+                  padding: '0 3px',
+                  fontSize: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                }}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </div>
           </Link>
         </header>
 

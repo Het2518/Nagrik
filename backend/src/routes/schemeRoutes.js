@@ -12,16 +12,32 @@ const {
   getSchemeBeneficiaries,
   nudgeBeneficiary,
   triggerSchemeCron,
+  createSchemeVersion,
+  getSchemeHistory,
+  rollbackSchemeVersion,
+  getSocialRegistryOverview,
+  recalculateSocialRegistry,
+  getFamilySocialRegistry,
 } = require('../controllers/schemeController');
 
 const OFFICER_ROLES = ['Talati', 'Mamlatdar', 'DistrictOfficer', 'Admin'];
 
 router.use(authenticate);
 
+// ── Social Registry (must be before :schemeCode parameter) ────────────────────
+router.get('/social-registry/overview',          requireRole(...OFFICER_ROLES), getSocialRegistryOverview);
+router.post('/social-registry/recalculate',      requireRole(...OFFICER_ROLES), recalculateSocialRegistry);
+router.get('/social-registry/family/:familyId',  getFamilySocialRegistry);
+
 // ── Saturation Board & Eligible Beneficiary Analytics — Officers & Admins ───────
 router.get('/:schemeCode/beneficiaries',  requireRole(...OFFICER_ROLES), getSchemeBeneficiaries);
 router.post('/:schemeCode/nudge',         requireRole(...OFFICER_ROLES), nudgeBeneficiary);
 router.post('/:schemeCode/evaluate-cron', requireRole(...OFFICER_ROLES), triggerSchemeCron);
+
+// ── Scheme Rule Versioning (Req 19-20) ─────────────────────────────────────────
+router.post('/:schemeCode/version',            requireRole('Admin'), createSchemeVersion);
+router.get('/:schemeCode/versions',            requireRole(...OFFICER_ROLES), getSchemeHistory);
+router.post('/:schemeCode/rollback/:version',  requireRole('Admin'), rollbackSchemeVersion);
 
 // ── Read — citizen + all officers ────────────────────────────────────────────
 router.get('/',              listSchemes);         // list; citizens see active + limited fields only

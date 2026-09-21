@@ -143,6 +143,87 @@ export default function SchemeDetailPage() {
       </div>
 
       <div className={styles.columns}>
+        {/* ── Budget & Welfare Allocation (Req 24) ──────────── */}
+        {scheme.budgetInfo && (
+          <Card>
+            <h2 className={styles.sectionTitle}>💰 Scheme Budget & Allocation ({scheme.budgetInfo.fiscalYear || 'FY 2024-25'})</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
+              <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>Total Sanctioned Budget</span>
+                <strong style={{ fontSize: 15, color: '#0F172A' }}>₹{(Number(scheme.budgetInfo.totalBudget || 0) / 10000000).toFixed(1)} Cr</strong>
+              </div>
+              <div style={{ background: '#ECFDF5', padding: '10px 14px', borderRadius: 8, border: '1px solid #A7F3D0' }}>
+                <span style={{ fontSize: 11, color: '#065F46', display: 'block' }}>Disbursed to Date</span>
+                <strong style={{ fontSize: 15, color: '#047857' }}>₹{(Number(scheme.budgetInfo.disbursedAmount || 0) / 10000000).toFixed(1)} Cr</strong>
+              </div>
+              <div style={{ background: '#EFF6FF', padding: '10px 14px', borderRadius: 8, border: '1px solid #BFDBFE' }}>
+                <span style={{ fontSize: 11, color: '#1E40AF', display: 'block' }}>Available Uncommitted</span>
+                <strong style={{ fontSize: 15, color: '#1D4ED8' }}>₹{(Number(scheme.budgetInfo.remainingBudget || 0) / 10000000).toFixed(1)} Cr</strong>
+              </div>
+            </div>
+            <div style={{ height: 8, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.min(100, Math.round(((scheme.budgetInfo.disbursedAmount || 1) / (scheme.budgetInfo.totalBudget || 1)) * 100))}%`,
+                background: '#059669'
+              }} />
+            </div>
+          </Card>
+        )}
+
+        {/* ── Co-Enrollment & Stacking (Req 22) ─────────────── */}
+        {(scheme.stackingRules?.allowsWith?.length > 0 || scheme.stackingRules?.blockedWith?.length > 0) && (
+          <Card>
+            <h2 className={styles.sectionTitle}>🔗 Co-Enrollment & Benefit Stacking Rules</h2>
+            <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 10px' }}>
+              Guidelines on receiving this benefit alongside other state and central schemes:
+            </p>
+            {scheme.stackingRules?.allowsWith?.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#15803D', display: 'block', marginBottom: 4 }}>
+                  ✓ Can be combined with:
+                </span>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {scheme.stackingRules.allowsWith.map((s, idx) => (
+                    <span key={idx} style={{ background: '#DCFCE7', color: '#166534', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {scheme.stackingRules?.blockedWith?.length > 0 && (
+              <div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C', display: 'block', marginBottom: 4 }}>
+                  ✕ Incompatible with (Mutually Exclusive):
+                </span>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {scheme.stackingRules.blockedWith.map((s, idx) => (
+                    <span key={idx} style={{ background: '#FEE2E2', color: '#991B1B', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* ── Renewal Policy (Req 20) ──────────────────────── */}
+        {scheme.renewalRules && (
+          <Card>
+            <h2 className={styles.sectionTitle}>🔄 Scheme Renewal & Lifecycle Rules</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: '#F8FAFC', borderRadius: 8 }}>
+              <div>
+                <strong>{scheme.renewalRules.autoRenewable ? 'Auto-Renewable via Social Registry' : 'Manual Annual Re-Verification Required'}</strong>
+                <p style={{ fontSize: 12, color: '#64748B', margin: '4px 0 0' }}>
+                  Renewal period: {scheme.renewalRules.renewalPeriodMonths || 12} months • Grace period: {scheme.renewalRules.gracePeriodDays || 30} days after expiry
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* ── Your Eligibility ─────────────────────────── */}
         {memberEligibility?.length > 0 && (
           <Card className={styles.eligCard}>

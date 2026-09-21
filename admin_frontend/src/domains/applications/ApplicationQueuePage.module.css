@@ -124,3 +124,168 @@
   .table th:nth-child(3), .table td:nth-child(3),
   .table th:nth-child(6), .table td:nth-child(6) { display: none; }
 }
+
+/* ── Phase 4: SLA KPIs & Workload Strip ───────────────────────── */
+.kpiStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.kpiCard {
+  background: var(--color-white);
+  border: var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--shadow-card);
+  border-top: 3px solid #CBD5E1;
+}
+
+.kpiTotal { border-top-color: #3B82F6; }
+.kpiInSLA { border-top-color: #10B981; }
+.kpiApproaching { border-top-color: #F59E0B; }
+.kpiBreached { border-top-color: #EF4444; }
+.kpiFastTrack { border-top-color: #8B5CF6; }
+
+.kpiVal {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-navy-900);
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  color: var(--color-gray-500);
+  font-weight: 600;
+}
+
+/* ── Bulk Actions Floating Toolbar ────────────────────────────── */
+.bulkToolbar {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0F172A;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  margin-bottom: var(--space-3);
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bulkInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bulkActions {
+  display: flex;
+  gap: 8px;
+}
+
+.bulkApproveBtn {
+  background: #10B981;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bulkApproveBtn:hover { background: #059669; }
+
+.bulkRejectBtn {
+  background: #EF4444;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bulkRejectBtn:hover { background: #DC2626; }
+
+.bulkCancelBtn {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.bulkCancelBtn:hover { background: rgba(255,255,255,0.25); }
+
+/* ── Priority & SLA Chips ─────────────────────────────────────── */
+.fastTrackPill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #EDE9FE;
+  color: #6D28D9;
+  border: 1px solid #DDD6FE;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.urgentPill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #FEE2E2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.slaOk {
+  font-size: 11px;
+  font-weight: 600;
+  color: #047857;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.slaWarning {
+  font-size: 11px;
+  font-weight: 700;
+  color: #D97706;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.slaBreached {
+  font-size: 11px;
+  font-weight: 800;
+  color: #DC2626;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
